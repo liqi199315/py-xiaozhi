@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XIAOZHI // TERMINAL</title>
+    <style>
+        /* --- CORE SYSTEM STYLES --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        body {
+            font-family: "Segoe UI", "Roboto Mono", monospace;
+            background-color: #050505;
+            color: #00f3ff;
+            overflow: hidden;
+            height: 100vh;
+            /* Tech Grid Background */
+            background-image:
+                linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* --- CANVAS LAYER --- */
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* --- UI OVERLAY LAYER --- */
+        .ui-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        /* --- STATUS HUD --- */
+        .hud-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 10, 15, 0.8);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            border-left: 4px solid #00f3ff;
+            padding: 10px 20px;
+            font-family: "Consolas", monospace;
+            font-size: 12px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+            transform: skewX(-10deg);
+        }
+
+        .hud-content {
+            transform: skewX(10deg);
+        }
+
+        /* Counter-skew text */
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .led {
+            width: 6px;
+            height: 6px;
+            background: #333;
+            box-shadow: 0 0 5px #333;
+            transition: all 0.3s;
+        }
+
+        .led.active {
+            background: #00f3ff;
+            box-shadow: 0 0 8px #00f3ff;
+        }
+
+        .led.busy {
+            background: #ffaa00;
+            box-shadow: 0 0 8px #ffaa00;
+        }
+
+        .label {
+            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: 1px;
+        }
+
+        .value {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        /* --- COMMUNICATION LOG (Subtitle) --- */
+        .comm-area {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 800px;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .comm-box {
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0, 20, 30, 0.9) 20%, rgba(0, 20, 30, 0.9) 80%, rgba(0, 0, 0, 0) 100%);
+            border-top: 1px solid rgba(0, 243, 255, 0.3);
+            border-bottom: 1px solid rgba(0, 243, 255, 0.3);
+            padding: 20px 40px;
+            font-size: 18px;
+            line-height: 1.6;
+            color: #e0ffff;
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.4);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .comm-box.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .comm-label {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            background: #000;
+            color: #00f3ff;
+            padding: 0 10px;
+            border: 1px solid #00f3ff;
+            font-family: monospace;
+        }
+
+        /* --- CONTROL DECK --- */
+        .control-deck {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+            pointer-events: auto;
+            background: rgba(0, 5, 10, 0.8);
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Tech Buttons */
+        .btn {
+            background: rgba(0, 243, 255, 0.05);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            color: #00f3ff;
+            padding: 0 20px;
+            height: 40px;
+            font-family: "Consolas", monospace;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 2px;
+            height: 100%;
+            background: #00f3ff;
+            opacity: 0.5;
+        }
+
+        .btn:hover {
+            background: rgba(0, 243, 255, 0.15);
+            border-color: #00f3ff;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+
+        .btn:active {
+            background: rgba(0, 243, 255, 0.3);
+        }
+
+        .btn.active {
+            background: #00f3ff;
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+        }
+
+        .btn.danger {
+            border-color: #ff3366;
+            color: #ff3366;
+        }
+
+        .btn.danger::before {
+            background: #ff3366;
+        }
+
+        .btn.danger:hover {
+            background: rgba(255, 51, 102, 0.15);
+            border-color: #ff3366;
+            box-shadow: 0 0 15px rgba(255, 51, 102, 0.3);
+        }
+
+        /* Input Field */
+        .input-module {
+            display: flex;
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            background: rgba(0, 20, 30, 0.5);
+            position: relative;
+        }
+
+        .input-module::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            border-bottom: 2px solid #00f3ff;
+            border-right: 2px solid #00f3ff;
+        }
+
+        .term-input {
+            background: transparent;
+            border: none;
+            color: #fff;
+            padding: 0 15px;
+            font-family: "Segoe UI", sans-serif;
+            font-size: 14px;
+            width: 350px;
+            height: 40px;
+        }
+
+        .term-input::placeholder {
+            color: rgba(0, 243, 255, 0.3);
+            font-family: monospace;
+        }
+
+        .btn-send {
+            border: none;
+            border-left: 1px solid rgba(0, 243, 255, 0.3);
+            background: rgba(0, 243, 255, 0.1);
+            color: #00f3ff;
+            width: 50px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-send:hover {
+            background: rgba(0, 243, 255, 0.3);
+        }
+
+        /* Loading Overlay */
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .hex-loader {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 243, 255, 0.1);
+            border: 2px solid #00f3ff;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            animation: pulse 1.5s infinite ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hex-inner {
+            width: 30px;
+            height: 30px;
+            background: #00f3ff;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+        }
+
+        .loading-text {
+            font-family: monospace;
+            font-size: 14px;
+            letter-spacing: 4px;
+            color: #00f3ff;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.9);
+                opacity: 0.7;
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+                box-shadow: 0 0 20px #00f3ff;
+            }
+
+            100% {
+                transform: scale(0.9);
+                opacity: 0.7;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div id="loading">
+        <div class="hex-loader">
+            <div class="hex-inner"></div>
+        </div>
+        <div class="loading-text">SYSTEM INITIALIZING</div>
+    </div>
+
+    <div class="ui-layer">
+        <!-- Top Right HUD -->
+        <div class="hud-panel">
+            <div class="hud-content">
+                <div class="status-row">
+                    <div class="led" id="conn-led"></div>
+                    <span class="label">LINK:</span>
+                    <span class="value" id="conn-status">OFFLINE</span>
+                </div>
+                <div class="status-row">
+                    <div class="led" id="state-led"></div>
+                    <span class="label">ANDREY:</span>
+                    <span class="value" id="state-text">STANDBY</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subtitle / Log Area -->
+        <div class="comm-area">
+            <div class="comm-box" id="comm-box">
+                <div class="comm-label">INCOMING TRANSMISSION</div>
+                <span id="comm-text">WAITING FOR SIGNAL...</span>
+            </div>
+        </div>
+
+        <!-- Bottom Control Deck -->
+        <div class="control-deck">
+            <button class="btn" id="btnSpeak">HOLD TO SPEAK</button>
+
+            <div class="input-module">
+                <input type="text" class="term-input" id="textInput" placeholder="ENTER COMMAND..." autocomplete="off">
+                <button class="btn-send" id="btnSend">➤</button>
+            </div>
+
+            <button class="btn danger" id="btnAbort">ABORT</button>
+        </div>
+    </div>
+
+    <!-- PixiJS v6 & Live2D SDK -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
+
+    <script>
+        // Global PIXI for auto-update
+        window.PIXI = PIXI;
+
+        // UI Elements
+        const ui = {
+            canvas: document.getElementById('canvas'),
+            loading: document.getElementById('loading'),
+            commBox: document.getElementById('comm-box'),
+            commText: document.getElementById('comm-text'),
+            connLed: document.getElementById('conn-led'),
+            connStatus: document.getElementById('conn-status'),
+            stateLed: document.getElementById('state-led'),
+            stateText: document.getElementById('state-text'),
+            btnSpeak: document.getElementById('btnSpeak'),
+            textInput: document.getElementById('textInput'),
+            btnSend: document.getElementById('btnSend'),
+            btnAbort: document.getElementById('btnAbort')
+        };
+
+        let app, model;
+        let isRecording = false;
+        let isSpeaking = false;
+        let lipSyncInterval = null;
+
+        // Init PixiJS
+        app = new PIXI.Application({
+            view: ui.canvas,
+            autoStart: true,
+            transparent: true,
+            resizeTo: window
+        });
+
+        // Load Model
+        (async () => {
+            try {
+                model = await PIXI.live2d.Live2DModel.from('./live2d/haru/haru_greeter_t05.model3.json');
+
+                // Setup Model
+                model.anchor.set(0.5, 0.5);
+                model.position.set(window.innerWidth / 2, window.innerHeight * 0.65);
+                model.scale.set(window.innerHeight * 0.85 / model.height);
+
+                app.stage.addChild(model);
+                ui.loading.style.display = 'none';
+
+                if (model.internalModel.motionManager) {
+                    model.motion('Idle');
+                }
+                console.log('System Online.');
+            } catch (error) {
+                console.error('Init Failed:', error);
+                ui.loading.innerHTML = '<div style="color:#ff3366">SYSTEM ERROR</div>';
+            }
+        })();
+
+        // Resize Handler
+        window.addEventListener('resize', () => {
+            if (model) {
+                model.position.set(window.innerWidth / 2, window.innerHeight * 0.65);
+                model.scale.set(window.innerHeight * 0.85 / model.height);
+            }
+        });
+
+        // --- Logic Functions ---
+
+        function showMessage(text) {
+            ui.commText.textContent = text;
+            ui.commBox.classList.add('active');
+
+            // Auto hide after 5s
+            if (window.msgTimeout) clearTimeout(window.msgTimeout);
+            window.msgTimeout = setTimeout(() => {
+                ui.commBox.classList.remove('active');
+            }, 5000);
+        }
+
+        function updateStatus(connected, state) {
+            if (connected !== null) {
+                ui.connStatus.textContent = connected ? "ONLINE" : "OFFLINE";
+                ui.connLed.className = connected ? "led active" : "led";
+            }
+
+            if (state) {
+                ui.stateText.textContent = state.toUpperCase();
+                if (state === 'speaking') {
+                    ui.stateLed.className = "led active";
+                    isSpeaking = true;
+                    startLipSync();
+                    if (model && model.motion) try { model.motion('Tap'); } catch (e) { }
+                } else if (state === 'listening' || state === 'processing') {
+                    ui.stateLed.className = "led busy";
+                    isSpeaking = false;
+                    stopLipSync();
+                } else {
+                    ui.stateLed.className = "led";
+                    isSpeaking = false;
+                    stopLipSync();
+                }
+            }
+        }
+
+        // Gaze locking function to be called every frame
+        const forceGazeForward = () => {
+            if (model && model.internalModel && model.internalModel.coreModel) {
+                try {
+                    model.internalModel.coreModel.setParameterValueById('ParamAngleX', 0);
+                    model.internalModel.coreModel.setParameterValueById('ParamAngleY', 0);
+                    model.internalModel.coreModel.setParameterValueById('ParamAngleZ', 0);
+                    model.internalModel.coreModel.setParameterValueById('ParamBodyAngleX', 0);
+                    model.internalModel.coreModel.setParameterValueById('ParamEyeBallX', 0);
+                    model.internalModel.coreModel.setParameterValueById('ParamEyeBallY', 0);
+                } catch (e) { }
+            }
+        };
+
+        function startLipSync() {
+            if (lipSyncInterval || !model) return;
+
+            // Disable mouse interaction to prevent conflict
+            model.interactive = false;
+
+            // Add gaze locking to the render loop
+            app.ticker.add(forceGazeForward);
+
+            lipSyncInterval = setInterval(() => {
+                if (model && model.internalModel && isSpeaking) {
+                    try {
+                        const val = Math.random() * 0.8 + 0.2;
+                        model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', val);
+                    } catch (e) { }
+                }
+            }, 100);
+        }
+
+        function stopLipSync() {
+            if (lipSyncInterval) {
+                clearInterval(lipSyncInterval);
+                lipSyncInterval = null;
+            }
+
+            // Remove gaze locking
+            app.ticker.remove(forceGazeForward);
+
+            // Restore mouse interaction
+            if (model) model.interactive = true;
+
+            if (model && model.internalModel) {
+                try {
+                    model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0);
+                } catch (e) { }
+            }
+        }
+
+        // --- API & Interaction ---
+
+        const callApi = async (path, data = {}) => {
+            try {
+                const res = await fetch(path, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) throw new Error(await res.text());
+                return res.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                showMessage("ERROR: " + error.message);
+            }
+        };
+
+        // Send Text
+        const sendText = async () => {
+            const text = ui.textInput.value.trim();
+            if (!text) return;
+
+            ui.textInput.value = '';
+            showMessage("SENDING: " + text);
+            await callApi('/api/text', { text: text });
+        };
+
+        ui.btnSend.addEventListener('click', sendText);
+        ui.textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendText();
+        });
+
+        // Voice Controls
+        ui.btnSpeak.addEventListener('mousedown', async () => {
+            isRecording = true;
+            ui.btnSpeak.classList.add('active');
+            await callApi('/api/voice/manual/start');
+        });
+
+        const stopRecording = async () => {
+            if (!isRecording) return;
+            isRecording = false;
+            ui.btnSpeak.classList.remove('active');
+            await callApi('/api/voice/manual/stop');
+        };
+
+        ui.btnSpeak.addEventListener('mouseup', stopRecording);
+        ui.btnSpeak.addEventListener('mouseleave', stopRecording);
+
+        // Abort
+        ui.btnAbort.addEventListener('click', async () => {
+            await callApi('/api/abort');
+            updateStatus(null, 'idle');
+        });
+
+        // SSE
+        const connectSSE = () => {
+            const evtSource = new EventSource('/events');
+
+            evtSource.onopen = () => {
+                updateStatus(true, 'idle');
+                showMessage("SYSTEM LINK ESTABLISHED");
+            };
+
+            evtSource.onmessage = (event) => {
+                if (!event.data) return;
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.event === 'json') {
+                        const p = data.payload || {};
+                        // Fix: Only show if text exists and is not empty
+                        if (p.text) {
+                            if (p.type === 'stt') showMessage("USER: " + p.text);
+                            else if (p.type === 'tts' || p.type === 'llm') showMessage("ANDREY: " + p.text);
+                        }
+                    } else if (data.event === 'state') {
+                        updateStatus(null, data.payload);
+                    } else if (data.event === 'state_snapshot' && data.payload.device_state) {
+                        updateStatus(null, data.payload.device_state);
+                    }
+                } catch (error) { console.error(error); }
+            };
+
+            evtSource.onerror = () => {
+                updateStatus(false, 'idle');
+                evtSource.close();
+                setTimeout(connectSSE, 3000);
+            };
+        };
+
+        connectSSE();
+    </script>
+</body>
+
+</html>

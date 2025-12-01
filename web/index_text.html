@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>小智 Web 控制台</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Segoe UI", "PingFang SC", system-ui, -apple-system,
+          BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #0f1115;
+        color: #f2f4f8;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        padding: 16px 24px;
+        background: #1a1d23;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #252932;
+      }
+
+      .state-badge {
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        background: #393f4b;
+      }
+
+      .state-idle {
+        background: #393f4b;
+      }
+
+      .state-listening {
+        background: #1f6feb;
+      }
+
+      .state-speaking {
+        background: #f0932b;
+        color: #0f1115;
+      }
+
+      main {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 0;
+      }
+
+      .chat-panel {
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #252932;
+      }
+
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .message {
+        padding: 12px 16px;
+        border-radius: 12px;
+        max-width: 80%;
+        line-height: 1.5;
+      }
+
+      .message small {
+        display: block;
+        opacity: 0.6;
+        font-size: 11px;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .message-user {
+        align-self: flex-end;
+        background: #1f6feb;
+      }
+
+      .message-assistant {
+        align-self: flex-start;
+        background: #1d222c;
+        border: 1px solid #2b3240;
+      }
+
+      form {
+        padding: 16px 24px 24px;
+        border-top: 1px solid #252932;
+        display: flex;
+        gap: 12px;
+      }
+
+      input[type="text"] {
+        flex: 1;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid #2b3240;
+        background: #13161c;
+        color: inherit;
+      }
+
+      button {
+        background: #2d7ff9;
+        border: none;
+        color: #fff;
+        padding: 12px 18px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      button.secondary {
+        background: #1d222c;
+        border: 1px solid #2b3240;
+      }
+
+      button.warning {
+        background: #f05c45;
+      }
+
+      .control-panel {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .control-group {
+        background: #151921;
+        border-radius: 14px;
+        border: 1px solid #202532;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .control-group h3 {
+        margin: 0;
+        font-size: 15px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.7;
+      }
+
+      .log-area {
+        font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+        background: #0d0f13;
+        border-radius: 10px;
+        padding: 12px;
+        height: 200px;
+        overflow-y: auto;
+        font-size: 12px;
+        border: 1px solid #1b1f27;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <strong>AI 小智 · 本地控制台</strong>
+      </div>
+      <div class="state-badge state-idle" id="stateBadge">IDLE</div>
+    </header>
+
+    <main>
+      <section class="chat-panel">
+        <div class="messages" id="messages"></div>
+        <form id="textForm">
+          <input
+            type="text"
+            id="textInput"
+            placeholder="输入内容并发送给小智…"
+            autocomplete="off"
+            required
+          />
+          <button type="submit">发送</button>
+        </form>
+      </section>
+
+      <aside class="control-panel">
+        <div class="control-group">
+          <h3>语音控制</h3>
+          <button id="voiceStart" type="button">开始按住说话</button>
+          <button id="voiceStop" type="button" class="secondary">
+            结束按住说话
+          </button>
+          <button id="voiceAuto" type="button" class="secondary">
+            开启自动对话
+          </button>
+          <button id="abortBtn" type="button" class="warning">中断</button>
+        </div>
+
+        <div class="control-group">
+          <h3>事件日志</h3>
+          <div class="log-area" id="logArea"></div>
+        </div>
+      </aside>
+    </main>
+
+    <script>
+      const messagesEl = document.getElementById("messages");
+      const stateBadge = document.getElementById("stateBadge");
+      const logArea = document.getElementById("logArea");
+      const textForm = document.getElementById("textForm");
+      const textInput = document.getElementById("textInput");
+
+      const voiceStartBtn = document.getElementById("voiceStart");
+      const voiceStopBtn = document.getElementById("voiceStop");
+      const voiceAutoBtn = document.getElementById("voiceAuto");
+      const abortBtn = document.getElementById("abortBtn");
+
+      const appendMessage = (role, text) => {
+        if (!text) return;
+        const container = document.createElement("div");
+        container.className = `message ${
+          role === "user" ? "message-user" : "message-assistant"
+        }`;
+
+        const meta = document.createElement("small");
+        meta.textContent = role === "user" ? "我" : "小智";
+        container.appendChild(meta);
+
+        const span = document.createElement("div");
+        span.textContent = text;
+        container.appendChild(span);
+
+        messagesEl.appendChild(container);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      };
+
+      const logEvent = (text) => {
+        const ts = new Date().toLocaleTimeString();
+        logArea.textContent += `[${ts}] ${text}\n`;
+        logArea.scrollTop = logArea.scrollHeight;
+      };
+
+      const updateState = (state) => {
+        if (!state) return;
+        stateBadge.textContent = state.toUpperCase();
+        stateBadge.className = "state-badge";
+        if (state === "listening") {
+          stateBadge.classList.add("state-listening");
+        } else if (state === "speaking") {
+          stateBadge.classList.add("state-speaking");
+        } else {
+          stateBadge.classList.add("state-idle");
+        }
+      };
+
+      const callApi = async (path, payload = {}) => {
+        const res = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(err || "请求失败");
+        }
+        return res.json();
+      };
+
+      textForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const text = textInput.value.trim();
+        if (!text) return;
+        appendMessage("user", text);
+        textInput.value = "";
+        try {
+          await callApi("/api/text", { text });
+        } catch (err) {
+          logEvent(`发送失败: ${err.message}`);
+        }
+      });
+
+      voiceStartBtn.addEventListener("click", async () => {
+        try {
+          await callApi("/api/voice/manual/start");
+          logEvent("已请求开始按住说话");
+        } catch (err) {
+          logEvent(`操作失败: ${err.message}`);
+        }
+      });
+
+      voiceStopBtn.addEventListener("click", async () => {
+        try {
+          await callApi("/api/voice/manual/stop");
+          logEvent("已请求结束按住说话");
+        } catch (err) {
+          logEvent(`操作失败: ${err.message}`);
+        }
+      });
+
+      voiceAutoBtn.addEventListener("click", async () => {
+        try {
+          await callApi("/api/voice/auto");
+          logEvent("已触发自动对话模式");
+        } catch (err) {
+          logEvent(`操作失败: ${err.message}`);
+        }
+      });
+
+      abortBtn.addEventListener("click", async () => {
+        try {
+          await callApi("/api/abort");
+          logEvent("已请求中断对话");
+        } catch (err) {
+          logEvent(`操作失败: ${err.message}`);
+        }
+      });
+
+      const evtSource = new EventSource("/events");
+      evtSource.onmessage = (event) => {
+        if (!event.data) return;
+        try {
+          const data = JSON.parse(event.data);
+          if (data.event === "json") {
+            const payload = data.payload || {};
+            if (payload.type === "stt") {
+              appendMessage("user", payload.text || "");
+            } else if (payload.type === "tts") {
+              appendMessage("assistant", payload.text || "");
+            } else if (payload.type === "llm") {
+              if (payload.text) {
+                appendMessage("assistant", payload.text);
+              } else if (payload.emotion) {
+                logEvent(`表情: ${payload.emotion}`);
+              }
+            } else {
+              logEvent(`JSON: ${JSON.stringify(payload)}`);
+            }
+          } else if (data.event === "state") {
+            updateState(data.payload);
+          } else if (data.event === "state_snapshot") {
+            const snapshot = data.payload || {};
+            if (snapshot.device_state) {
+              updateState(snapshot.device_state);
+            }
+          } else if (data.event === "local") {
+            // already appended locally
+          } else {
+            logEvent(`Event: ${event.data}`);
+          }
+        } catch (err) {
+          logEvent(`解析事件失败: ${err.message}`);
+        }
+      };
+
+      evtSource.onerror = () => {
+        logEvent("事件流连接已断开，尝试自动重连…");
+      };
+    </script>
+  </body>
+</html>

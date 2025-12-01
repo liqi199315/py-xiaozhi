@@ -125,6 +125,14 @@ py-xiaozhi 是一个使用 Python 实现的小智语音客户端，旨在通过�
 - **语音唤醒**：需要下载Sherpa-ONNX语音识别模型
 - **摄像头功能**：需要摄像头设备和OpenCV支持
 
+## Web 控制台（实验）
+
+- 运行 `python main.py` 后，程序会在 `http://127.0.0.1:8080` 自动开放本地 Web 控制台；
+- 浏览器中可查看实时对话流（`stt/tts/llm`）、当前设备状态，并通过按钮触发“按住说话 / 自动对话 / 中断”等操作；
+- 文本输入框会直接调用 `listen/detect`，与 GUI/CLI 界面共享同一个会话；
+- 如需修改监听地址，可设置环境变量 `XIAOZHI_WEB_HOST`、`XIAOZHI_WEB_PORT` 后再启动程序；
+- Web 控制台只负责远程交互，音频的采集与播放仍由 Python 客户端在本机完成。
+
 ## 请先看这里
 
 - 仔细阅读 [项目文档](https://huangjunsen0406.github.io/py-xiaozhi/) 启动教程和文件说明都在里面了

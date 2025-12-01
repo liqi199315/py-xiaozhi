@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>小智数字人 (Live2D)</title>
+    <style>
+        :root {
+            --primary-color: #00f2ff;
+            --secondary-color: #7000ff;
+            --bg-color: #0a0a0a;
+            --text-color: #ffffff;
+            --glass-bg: rgba(20, 20, 30, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            margin: 0;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+            font-family: "Segoe UI", "PingFang SC", system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #live2d-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Subtitles */
+        .subtitle-area {
+            position: absolute;
+            bottom: 120px;
+            width: 80%;
+            max-width: 800px;
+            text-align: center;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 10px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .subtitle-text {
+            font-size: 24px;
+            font-weight: 500;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+            line-height: 1.4;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(8px);
+        }
+
+        .subtitle-text.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .subtitle-role {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.8;
+            margin-bottom: 4px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 1);
+        }
+
+        /* Controls */
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            display: flex;
+            gap: 16px;
+            background: var(--glass-bg);
+            padding: 12px 24px;
+            border-radius: 50px;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #fff;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn.active {
+            background: var(--primary-color);
+            color: #000;
+            border-color: var(--primary-color);
+        }
+
+        .btn.danger {
+            border-color: #ff4757;
+            color: #ff4757;
+        }
+
+        .btn.danger:hover {
+            background: #ff4757;
+            color: #fff;
+        }
+
+        /* Status Indicator */
+        .status-pill {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 6px 12px;
+            background: var(--glass-bg);
+            border-radius: 20px;
+            font-size: 12px;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 10;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #666;
+        }
+
+        .status-dot.active {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        /* Loading Overlay */
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+
+        .loader {
+            border: 4px solid #333;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .loading-text {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading">
+        <div class="loader"></div>
+        <div class="loading-text">正在加载 Live2D 模型...</div>
+    </div>
+
+    <canvas id="live2d-canvas"></canvas>
+
+    <div class="status-pill">
+        <div class="status-dot" id="connStatus"></div>
+        <span id="stateText">DISCONNECTED</span>
+    </div>
+
+    <div class="subtitle-area">
+        <div class="subtitle-role" id="subRole"></div>
+        <div class="subtitle-text" id="subText">等待唤醒...</div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" id="voiceStart">
+            <span>🎤</span> 按住说话
+        </button>
+        <button class="btn" id="voiceAuto">
+            <span>🤖</span> 自动对话
+        </button>
+        <button class="btn danger" id="abortBtn">
+            <span>⏹</span> 中断
+        </button>
+    </div>
+
+    <!-- Import PixiJS and Live2D -->
+    <script src="https://unpkg.com/pixi.js@6.5.8/dist/browser/pixi.min.js"></script>
+    <script src="https://unpkg.com/pixi-live2d-display@0.5.0/dist/index.min.js"></script>
+
+    <script>
+        const loading = document.getElementById('loading');
+        const canvas = document.getElementById('live2d-canvas');
+        const subText = document.getElementById("subText");
+        const subRole = document.getElementById("subRole");
+        const stateText = document.getElementById("stateText");
+        const connStatus = document.getElementById("connStatus");
+        const voiceStartBtn = document.getElementById("voiceStart");
+        const voiceAutoBtn = document.getElementById("voiceAuto");
+        const abortBtn = document.getElementById("abortBtn");
+
+        let app;
+        let live2dModel;
+        let isRecording = false;
+        let isSpeaking = false;
+
+        // Initialize PixiJS and Live2D
+        async function initLive2D() {
+            try {
+                // Create PixiJS Application
+                app = new PIXI.Application({
+                    view: canvas,
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    transparent: true,
+                    autoStart: true,
+                    antialias: true,
+                });
+
+                // Load Live2D Model
+                // Using a free sample model from HiyoriUI
+                const modelUrl = 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/shizuku/shizuku.model.json';
+
+                live2dModel = await PIXI.live2d.Live2DModel.from(modelUrl);
+
+                // Scale and position the model
+                live2dModel.scale.set(0.15);
+                live2dModel.x = window.innerWidth / 2;
+                live2dModel.y = window.innerHeight / 2 + 200;
+
+                // Add model to stage
+                app.stage.addChild(live2dModel);
+
+                // Enable interaction
+                live2dModel.on('hit', (hitAreas) => {
+                    if (hitAreas.includes('body')) {
+                        live2dModel.motion('tap_body');
+                    }
+                });
+
+                // Auto blink and breath
+                live2dModel.internalModel.motionManager.expressionManager = null;
+
+                loading.style.opacity = 0;
+                setTimeout(() => loading.remove(), 500);
+                console.log("Live2D Model loaded successfully");
+
+                // Start idle animation
+                startIdleAnimation();
+
+            } catch (err) {
+                console.error("Failed to load Live2D model:", err);
+                document.querySelector('.loading-text').textContent = "加载失败: " + err.message;
+            }
+        }
+
+        // Idle animation loop
+        function startIdleAnimation() {
+            let time = 0;
+            app.ticker.add(() => {
+                if (!isSpeaking && live2dModel) {
+                    time += 0.01;
+                    // Subtle breathing effect
+                    live2dModel.y = window.innerHeight / 2 + 200 + Math.sin(time) * 5;
+                }
+            });
+        }
+
+        // Simulate lip sync by playing random motions
+        function simulateSpeaking(isActive) {
+            isSpeaking = isActive;
+            if (isActive && live2dModel) {
+                // Trigger talking animation if available
+                const motions = live2dModel.internalModel.motionManager.definitions;
+                if (motions && motions.idle) {
+                    live2dModel.motion('idle', Math.floor(Math.random() * motions.idle.length));
+                }
+            }
+        }
+
+        // Window resize handler
+        window.addEventListener('resize', () => {
+            if (app) {
+                app.renderer.resize(window.innerWidth, window.innerHeight);
+                if (live2dModel) {
+                    live2dModel.x = window.innerWidth / 2;
+                    live2dModel.y = window.innerHeight / 2 + 200;
+                }
+            }
+        });
+
+        initLive2D();
+
+        // --- UI Functions ---
+
+        const setSubtitle = (role, text) => {
+            if (!text) return;
+            subRole.textContent = role === "user" ? "YOU" : "AI";
+
+            subText.classList.remove("active");
+            setTimeout(() => {
+                subText.textContent = text;
+                subText.classList.add("active");
+            }, 50);
+        };
+
+        const updateState = (state) => {
+            if (!state) return;
+            stateText.textContent = state.toUpperCase();
+
+            if (state === 'speaking') {
+                simulateSpeaking(true);
+            } else {
+                simulateSpeaking(false);
+            }
+        };
+
+        // --- API Functions ---
+
+        const callApi = async (path, payload = {}) => {
+            try {
+                const res = await fetch(path, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                if (!res.ok) throw new Error(await res.text());
+                return res.json();
+            } catch (err) {
+                console.error("API Error:", err);
+            }
+        };
+
+        // --- Event Listeners ---
+
+        voiceStartBtn.addEventListener("mousedown", async () => {
+            isRecording = true;
+            voiceStartBtn.classList.add("active");
+            await callApi("/api/voice/manual/start");
+        });
+
+        const stopRecording = async () => {
+            if (!isRecording) return;
+            isRecording = false;
+            voiceStartBtn.classList.remove("active");
+            await callApi("/api/voice/manual/stop");
+        };
+
+        voiceStartBtn.addEventListener("mouseup", stopRecording);
+        voiceStartBtn.addEventListener("mouseleave", stopRecording);
+        voiceStartBtn.addEventListener("touchstart", async (e) => {
+            e.preventDefault();
+            isRecording = true;
+            voiceStartBtn.classList.add("active");
+            await callApi("/api/voice/manual/start");
+        });
+        voiceStartBtn.addEventListener("touchend", async (e) => {
+            e.preventDefault();
+            stopRecording();
+        });
+
+        voiceAutoBtn.addEventListener("click", async () => {
+            voiceAutoBtn.classList.toggle("active");
+            await callApi("/api/voice/auto");
+        });
+
+        abortBtn.addEventListener("click", async () => {
+            await callApi("/api/abort");
+            updateState("idle");
+        });
+
+        // --- SSE ---
+
+        const connectSSE = () => {
+            const evtSource = new EventSource("/events");
+
+            evtSource.onopen = () => {
+                connStatus.classList.add("active");
+                stateText.textContent = "CONNECTED";
+            };
+
+            evtSource.onmessage = (event) => {
+                if (!event.data) return;
+                try {
+                    const data = JSON.parse(event.data);
+
+                    if (data.event === "json") {
+                        const payload = data.payload || {};
+                        if (payload.type === "stt") {
+                            setSubtitle("user", payload.text);
+                        } else if (payload.type === "tts") {
+                            setSubtitle("assistant", payload.text);
+                        } else if (payload.type === "llm") {
+                            if (payload.text) {
+                                setSubtitle("assistant", payload.text);
+                            }
+                        }
+                    } else if (data.event === "state") {
+                        updateState(data.payload);
+                    } else if (data.event === "state_snapshot") {
+                        const snapshot = data.payload || {};
+                        if (snapshot.device_state) {
+                            updateState(snapshot.device_state);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Parse Error:", err);
+                }
+            };
+
+            evtSource.onerror = () => {
+                connStatus.classList.remove("active");
+                stateText.textContent = "RECONNECTING...";
+                evtSource.close();
+                setTimeout(connectSSE, 3000);
+            };
+        };
+
+        connectSSE();
+
+    </script>
+</body>
+
+</html>

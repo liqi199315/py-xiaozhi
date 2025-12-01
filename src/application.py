@@ -20,6 +20,7 @@ from src.plugins.mcp import McpPlugin
 from src.plugins.shortcuts import ShortcutsPlugin
 from src.plugins.ui import UIPlugin
 from src.plugins.wake_word import WakeWordPlugin
+from src.plugins.web_server import WebServerPlugin
 from src.protocols.mqtt_protocol import MqttProtocol
 from src.protocols.websocket_protocol import WebsocketProtocol
 from src.utils.config_manager import ConfigManager
@@ -111,6 +112,7 @@ class Application:
                 CalendarPlugin(),
                 UIPlugin(mode=mode),
                 ShortcutsPlugin(),
+                WebServerPlugin(),
             )
             await self.plugins.setup_all(self)
             # 启动后广播初始状态，确保 UI 就绪时能看到“待命”

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>WebGL 诊断</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            background: #2a2a2a;
+            border-left: 4px solid #00ff88;
+        }
+
+        .error {
+            border-left-color: #ff4757;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>WebGL 诊断工具</h2>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        function addResult(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = isError ? 'result error' : 'result';
+            div.textContent = message;
+            results.appendChild(div);
+        }
+
+        // Test WebGL
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+            if (gl) {
+                addResult('✓ WebGL 支持正常！');
+                addResult('WebGL 版本: ' + gl.getParameter(gl.VERSION));
+                addResult('渲染器: ' + gl.getParameter(gl.RENDERER));
+                addResult('供应商: ' + gl.getParameter(gl.VENDOR));
+
+                // Test WebGL2
+                const gl2 = canvas.getContext('webgl2');
+                if (gl2) {
+                    addResult('✓ WebGL2 也支持！');
+                } else {
+                    addResult('WebGL2 不支持（但 WebGL 1.0 足够了）');
+                }
+            } else {
+                addResult('✗ WebGL 不可用！', true);
+                addResult('请检查：chrome://gpu/', true);
+            }
+        } catch (e) {
+            addResult('✗ 错误: ' + e.message, true);
+        }
+
+        // Browser info
+        addResult('浏览器: ' + navigator.userAgent);
+        addResult('硬件并发: ' + navigator.hardwareConcurrency + ' cores');
+    </script>
+</body>
+
+</html>
