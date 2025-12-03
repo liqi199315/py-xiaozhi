@@ -1,0 +1,29 @@
+# WebSocket 代理配置
+
+# 服务器端口
+PORT=8080
+
+# 监听地址
+HOST=0.0.0.0
+
+# 后台 WebSocket 服务器地址
+BACKEND_WS_URL=wss://api.tenclass.net/xiaozhi/v1/
+
+# ===== 从 config.json 复制这些值 =====
+
+# Token（会过期，需要定期更新）
+DEFAULT_TOKEN=622121be-663d-44d7-b65a-8763f4502e2c
+
+# Device ID（固定，不会变）
+DEFAULT_DEVICE_ID=58:11:22:b7:26:42
+
+# Client ID（固定，不会变）
+DEFAULT_CLIENT_ID=975b0760-e76d-4571-be81-362c7cd35fde
+
+# ===== 更新说明 =====
+# 如果 token 失效：
+# 1. 运行 py-xiaozhi: python main_web.py
+# 2. 查看日志文件: logs/app.log
+# 3. 搜索 "token"，找到新的 token
+# 4. 更新上面的 DEFAULT_TOKEN 值
+# 5. 重启代理服务器: npm start

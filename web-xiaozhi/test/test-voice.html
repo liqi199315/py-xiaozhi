@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小智语音交互测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #333;
+            margin-top: 0;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 12px 24px;
+            margin: 10px 5px 0 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .btn-connect {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-disconnect {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-record {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-stop {
+            background: #ff9800;
+            color: white;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        #log {
+            background: #1e1e1e;
+            color: #61dafb;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .success {
+            color: #98c379;
+        }
+
+        .error {
+            color: #e06c75;
+        }
+
+        .warning {
+            color: #e5c07b;
+        }
+
+        .info {
+            color: #61afef;
+        }
+
+        #status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        #status.disconnected {
+            background: #fee;
+            color: #c33;
+        }
+
+        #status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        #status.recording {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        #status.playing {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #2196F3;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="box">
+        <h2>🎤 小智语音交互测试</h2>
+        <div id="status" class="disconnected">⚫ 未连接</div>
+
+        <label>代理地址:</label>
+        <input type="text" id="proxyUrl" value="ws://127.0.0.1:8080/api/ws-proxy" readonly>
+
+        <label>Token:</label>
+        <input type="text" id="token" value="622121be-663d-44d7-b65a-8763f4502e2c">
+
+        <label>Device ID:</label>
+        <input type="text" id="deviceId" value="58:11:22:b7:26:42">
+
+        <div class="controls">
+            <button class="btn-connect" onclick="connect()" id="btnConnect">🔌 连接</button>
+            <button class="btn-disconnect" onclick="disconnect()" id="btnDisconnect" disabled>断开</button>
+            <button class="btn-record" onclick="startRecording()" id="btnRecord" disabled>🎤 开始录音</button>
+            <button class="btn-stop" onclick="stopRecording()" id="btnStop" disabled>⏹️ 停止录音</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-label">连接状态</div>
+                <div class="stat-value" id="statConnection">未连接</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">录音状态</div>
+                <div class="stat-value" id="statRecording">未录音</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">播放状态</div>
+                <div class="stat-value" id="statPlaying">未播放</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">音频数据</div>
+                <div class="stat-value" id="statAudioData">0 字节</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="box">
+        <h2>📝 交互日志</h2>
+        <div id="log">等待连接...</div>
+    </div>
+
+    <!-- 引入依赖 -->
+    <script src="../js/protocol.js"></script>
+    <script src="../js/audio_recorder.js"></script>
+    <script src="../js/audio_player.js"></script>
+
+    <script>
+        // 全局对象
+        let protocol = null;
+        let audioRecorder = null;
+        let audioPlayer = null;
+        let totalAudioSent = 0;
+        let totalAudioReceived = 0;
+
+        // 日志函数
+        function log(msg, type = '') {
+            const div = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const cls = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'info' ? 'info' : '';
+            div.innerHTML += `<div class="${cls}">[${time}] ${msg}</div>`;
+            div.scrollTop = div.scrollHeight;
+        }
+
+        // 更新状态显示
+        function setStatus(state, text) {
+            const status = document.getElementById('status');
+            status.className = state;
+            status.textContent = text;
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            document.getElementById('statConnection').textContent = protocol && protocol.connected ? '已连接' : '未连接';
+            document.getElementById('statRecording').textContent = audioRecorder && audioRecorder.isRecording ? '录音中' : '未录音';
+            document.getElementById('statPlaying').textContent = audioPlayer && audioPlayer.isPlaying ? '播放中' : '未播放';
+            document.getElementById('statAudioData').textContent = `发送 ${(totalAudioSent / 1024).toFixed(1)}KB / 接收 ${(totalAudioReceived / 1024).toFixed(1)}KB`;
+        }
+
+        // 更新按钮状态
+        function updateButtons() {
+            const connected = protocol && protocol.connected;
+            const recording = audioRecorder && audioRecorder.isRecording;
+
+            document.getElementById('btnConnect').disabled = connected;
+            document.getElementById('btnDisconnect').disabled = !connected;
+            document.getElementById('btnRecord').disabled = !connected || recording;
+            document.getElementById('btnStop').disabled = !recording;
+        }
+
+        // 连接到服务器
+        async function connect() {
+            try {
+                const token = document.getElementById('token').value.trim();
+                const deviceId = document.getElementById('deviceId').value.trim();
+                const proxyUrl = document.getElementById('proxyUrl').value;
+
+                if (!token) {
+                    alert('请输入 Token！');
+                    return;
+                }
+
+                log('🔌 开始连接...', 'info');
+                setStatus('disconnected', '⏳ 连接中...');
+
+                // 创建协议对象
+                const config = {
+                    ACCESS_TOKEN: token,
+                    DEVICE_ID: deviceId,
+                    CLIENT_ID: 'web-voice-client',
+                    AUDIO: {
+                        FORMAT: 'opus',
+                        SAMPLE_RATE: 16000,
+                        CHANNELS: 1,
+                        FRAME_DURATION: 20
+                    }
+                };
+
+                protocol = new XiaozhiProtocol(config);
+
+                // 设置回调
+                protocol.onConnected = (message) => {
+                    log('✅ WebSocket 连接成功！', 'success');
+                    log(`🎉 Session ID: ${message.session_id}`, 'success');
+                    setStatus('connected', '🟢 已连接');
+                    updateButtons();
+                    updateStats();
+
+                    // 初始化音频
+                    initializeAudio();
+                };
+
+                protocol.onDisconnected = (reason) => {
+                    log(`🔌 连接已断开: ${reason}`, 'warning');
+                    setStatus('disconnected', '⚫ 未连接');
+                    updateButtons();
+                    updateStats();
+                };
+
+                protocol.onJsonMessage = (message) => {
+                    log(`📥 收到消息: ${JSON.stringify(message)}`, 'info');
+
+                    // 处理不同类型的消息
+                    if (message.type === 'transcription') {
+                        log(`📝 识别结果: ${message.text}`, 'success');
+                    } else if (message.type === 'response') {
+                        log(`💬 小智回复: ${message.text}`, 'success');
+                    } else if (message.type === 'error') {
+                        log(`⚠️ 错误: ${message.message}`, 'error');
+                    }
+                };
+
+                protocol.onAudioData = async (audioData) => {
+                    log(`🔊 收到音频数据: ${audioData.byteLength} 字节`, 'info');
+                    totalAudioReceived += audioData.byteLength;
+                    updateStats();
+
+                    // 播放音频
+                    if (audioPlayer) {
+                        setStatus('playing', '🔊 播放中...');
+                        await audioPlayer.playAudioData(audioData);
+                    }
+                };
+
+                protocol.onError = (error) => {
+                    log(`❌ 错误: ${error.message}`, 'error');
+                    setStatus('disconnected', '❌ 连接错误');
+                };
+
+                // 连接
+                await protocol.connect();
+
+            } catch (error) {
+                log(`❌ 连接失败: ${error.message}`, 'error');
+                setStatus('disconnected', '❌ 连接失败');
+                updateButtons();
+            }
+        }
+
+        // 断开连接
+        function disconnect() {
+            log('🔌 断开连接...', 'info');
+
+            if (audioRecorder && audioRecorder.isRecording) {
+                audioRecorder.stopRecording();
+            }
+
+            if (protocol) {
+                protocol.disconnect();
+                protocol = null;
+            }
+
+            setStatus('disconnected', '⚫ 已断开');
+            updateButtons();
+            updateStats();
+        }
+
+        // 初始化音频
+        async function initializeAudio() {
+            try {
+                log('🎤 初始化音频录制器...', 'info');
+
+                // 创建录音器
+                audioRecorder = new AudioRecorder();
+
+                // 设置回调
+                audioRecorder.onAudioData = (audioData) => {
+                    // 发送音频数据到服务器
+                    if (protocol && protocol.connected) {
+                        protocol.sendAudio(audioData);
+                        totalAudioSent += audioData.length;
+                        updateStats();
+                    }
+                };
+
+                audioRecorder.onError = (error) => {
+                    log(`❌ 录音错误: ${error.message}`, 'error');
+                };
+
+                // 初始化
+                await audioRecorder.initialize();
+                log('✅ 音频录制器初始化成功', 'success');
+
+                // 创建播放器
+                log('🔊 初始化音频播放器...', 'info');
+                audioPlayer = new AudioPlayer();
+
+                // 设置回调
+                audioPlayer.onPlaybackStart = () => {
+                    log('▶️ 开始播放音频', 'info');
+                    setStatus('playing', '🔊 播放中...');
+                    updateStats();
+                };
+
+                audioPlayer.onPlaybackEnd = () => {
+                    log('⏹️ 音频播放完成', 'info');
+                    setStatus('connected', '🟢 已连接');
+                    updateStats();
+                };
+
+                audioPlayer.onError = (error) => {
+                    log(`❌ 播放错误: ${error.message}`, 'error');
+                };
+
+                // 初始化
+                await audioPlayer.initialize();
+                log('✅ 音频播放器初始化成功', 'success');
+
+            } catch (error) {
+                log(`❌ 音频初始化失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 开始录音
+        async function startRecording() {
+            try {
+                if (!audioRecorder) {
+                    log('❌ 录音器未初始化', 'error');
+                    return;
+                }
+
+                log('🎤 开始录音...', 'info');
+                setStatus('recording', '🎤 录音中...');
+
+                // 发送开始监听消息
+                await protocol.startListening('manual');
+
+                // 开始录音
+                audioRecorder.startRecording();
+
+                updateButtons();
+                updateStats();
+
+            } catch (error) {
+                log(`❌ 开始录音失败: ${error.message}`, 'error');
+                setStatus('connected', '🟢 已连接');
+            }
+        }
+
+        // 停止录音
+        async function stopRecording() {
+            try {
+                if (!audioRecorder) {
+                    log('❌ 录音器未初始化', 'error');
+                    return;
+                }
+
+                log('⏹️ 停止录音...', 'info');
+
+                // 停止录音
+                audioRecorder.stopRecording();
+
+                // 发送停止监听消息
+                await protocol.stopListening();
+
+                setStatus('connected', '🟢 已连接');
+                updateButtons();
+                updateStats();
+
+            } catch (error) {
+                log(`❌ 停止录音失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载完成
+        window.addEventListener('load', () => {
+            log('📱 页面加载完成，准备就绪', 'success');
+            updateButtons();
+            updateStats();
+        });
+
+        // 页面卸载前清理
+        window.addEventListener('beforeunload', () => {
+            if (audioRecorder) {
+                audioRecorder.dispose();
+            }
+            if (audioPlayer) {
+                audioPlayer.dispose();
+            }
+            if (protocol) {
+                protocol.disconnect();
+            }
+        });
+    </script>
+</body>
+
+</html>

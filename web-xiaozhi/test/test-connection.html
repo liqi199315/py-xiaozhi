@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小智连接测试</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.idle { background: #e3f2fd; color: #1976d2; }
+        .status.connecting { background: #fff3e0; color: #f57c00; }
+        .status.connected { background: #e8f5e9; color: #388e3c; }
+        .status.error { background: #ffebee; color: #c62828; }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover { background: #45a049; }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .log {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 3px 0;
+        }
+        .log-entry.info { color: #64b5f6; }
+        .log-entry.success { color: #81c784; }
+        .log-entry.error { color: #e57373; }
+        .log-entry.warn { color: #ffb74d; }
+        
+        .config-panel {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .config-panel input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        .config-panel label {
+            display: block;
+            margin-top: 10px;
+            color: #666;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 小智WebSocket连接测试</h1>
+        
+        <!-- 状态显示 -->
+        <div id="status" class="status idle">
+            状态: 未连接
+        </div>
+        
+        <!-- 配置面板 -->
+        <div class="config-panel">
+            <h3>连接配置</h3>
+            <label>WebSocket地址:</label>
+            <input type="text" id="wsUrl" placeholder="wss://your-server.com/ws">
+            
+            <label>Access Token:</label>
+            <input type="text" id="accessToken" placeholder="your_access_token">
+            
+            <label>Device ID:</label>
+            <input type="text" id="deviceId" placeholder="your_device_id">
+            
+            <label>Client ID:</label>
+            <input type="text" id="clientId" placeholder="your_client_id">
+        </div>
+        
+        <!-- 控制按钮 -->
+        <div>
+            <button id="btnConnect">连接服务器</button>
+            <button id="btnDisconnect" disabled>断开连接</button>
+            <button id="btnStartListen" disabled>开始监听</button>
+            <button id="btnStopListen" disabled>停止监听</button>
+            <button id="btnClearLog">清空日志</button>
+        </div>
+        
+        <!-- 日志面板 -->
+        <div class="log" id="logPanel">
+            <div class="log-entry info">等待连接...</div>
+        </div>
+    </div>
+    
+    <script src="../js/config.js"></script>
+    <script src="../js/protocol.js"></script>
+    <script>
+        // 全局变量
+        let protocol = null;
+        let isConnected = false;
+        
+        // 日志函数
+        function log(message, type = 'info') {
+            const logPanel = document.getElementById('logPanel');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logPanel.appendChild(entry);
+            logPanel.scrollTop = logPanel.scrollHeight;
+        }
+        
+        // 更新状态
+        function updateStatus(status, text) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = `状态: ${text}`;
+        }
+        
+        // 更新按钮状态
+        function updateButtons(connected) {
+            document.getElementById('btnConnect').disabled = connected;
+            document.getElementById('btnDisconnect').disabled = !connected;
+            document.getElementById('btnStartListen').disabled = !connected;
+            document.getElementById('btnStopListen').disabled = !connected;
+        }
+        
+        // 初始化
+        function init() {
+            // 从配置加载默认值
+            document.getElementById('wsUrl').value = CONFIG.WEBSOCKET_URL;
+            document.getElementById('accessToken').value = CONFIG.ACCESS_TOKEN;
+            document.getElementById('deviceId').value = CONFIG.DEVICE_ID;
+            document.getElementById('clientId').value = CONFIG.CLIENT_ID;
+            
+            log('页面初始化完成', 'success');
+            log('请填写连接配置后点击"连接服务器"', 'info');
+        }
+        
+        // 连接按钮
+        document.getElementById('btnConnect').onclick = async () => {
+            try {
+                updateStatus('connecting', '正在连接...');
+                log('开始连接到服务器...', 'info');
+                
+                // 读取配置
+                const config = {
+                    WEBSOCKET_URL: document.getElementById('wsUrl').value,
+                    ACCESS_TOKEN: document.getElementById('accessToken').value,
+                    DEVICE_ID: document.getElementById('deviceId').value,
+                    CLIENT_ID: document.getElementById('clientId').value,
+                    AUDIO: CONFIG.AUDIO
+                };
+                
+                // 验证配置
+                if (!config.WEBSOCKET_URL) {
+                    throw new Error('请输入WebSocket地址');
+                }
+                
+                // 创建协议实例
+                protocol = new XiaozhiProtocol(config);
+                
+                // 设置回调
+                protocol.onConnected = (message) => {
+                    log('✅ 连接成功!', 'success');
+                    log(`Session ID: ${message.session_id}`, 'success');
+                    updateStatus('connected', '已连接');
+                    updateButtons(true);
+                    isConnected = true;
+                };
+                
+                protocol.onDisconnected = (reason) => {
+                    log(`连接已断开: ${reason}`, 'warn');
+                    updateStatus('idle', '未连接');
+                    updateButtons(false);
+                    isConnected = false;
+                };
+                
+                protocol.onJsonMessage = (message) => {
+                    log(`收到消息: ${JSON.stringify(message)}`, 'info');
+                    
+                    // 处理TTS消息
+                    if (message.type === 'tts') {
+                        if (message.state === 'start') {
+                            log(`🔊 AI开始说话: ${message.text}`, 'success');
+                        } else if (message.state === 'stop') {
+                            log('🔇 AI说话结束', 'info');
+                        }
+                    }
+                    
+                    // 处理STT消息
+                    if (message.type === 'stt') {
+                        log(`🎤 识别结果: ${message.text}`, 'success');
+                    }
+                };
+                
+                protocol.onAudioData = (data) => {
+                    log(`收到音频数据: ${data.byteLength} 字节`, 'info');
+                };
+                
+                protocol.onError = (error) => {
+                    log(`错误: ${error.message}`, 'error');
+                    updateStatus('error', '连接错误');
+                };
+                
+                // 连接
+                await protocol.connect();
+                
+            } catch (error) {
+                log(`连接失败: ${error.message}`, 'error');
+                updateStatus('error', '连接失败');
+                updateButtons(false);
+            }
+        };
+        
+        // 断开按钮
+        document.getElementById('btnDisconnect').onclick = () => {
+            if (protocol) {
+                protocol.disconnect();
+                log('已断开连接', 'warn');
+                updateStatus('idle', '未连接');
+                updateButtons(false);
+            }
+        };
+        
+        // 开始监听按钮
+        document.getElementById('btnStartListen').onclick = async () => {
+            try {
+                await protocol.startListening('manual');
+                log('✅ 已发送开始监听命令', 'success');
+            } catch (error) {
+                log(`发送失败: ${error.message}`, 'error');
+            }
+        };
+        
+        // 停止监听按钮
+        document.getElementById('btnStopListen').onclick = async () => {
+            try {
+                await protocol.stopListening();
+                log('✅ 已发送停止监听命令', 'success');
+            } catch (error) {
+                log(`发送失败: ${error.message}`, 'error');
+            }
+        };
+        
+        // 清空日志按钮
+        document.getElementById('btnClearLog').onclick = () => {
+            document.getElementById('logPanel').innerHTML = '';
+            log('日志已清空', 'info');
+        };
+        
+        // 页面加载完成
+        window.onload = init;
+    </script>
+</body>
+</html>

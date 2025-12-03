@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(build_exe_web.bat)",
+      "Bash(cmd /c \"build_exe_web.bat\")",
+      "Bash(python -c:*)",
+      "Bash(pip install:*)",
+      "Bash(if exist build rmdir /s /q build)",
+      "Bash(if exist \"dist\\XiaozhiAI-Web\" rmdir /s /q \"dist\\XiaozhiAI-Web\")",
+      "Bash(cmd /c \"cd /d c:\\Users\\Administrator\\Desktop\\project-active\\py-xiaozhi && (if exist build rmdir /s /q build) && (if exist dist\\XiaozhiAI-Web rmdir /s /q dist\\XiaozhiAI-Web)\")",
+      "Bash(cmd /c \"cd /d c:\\Users\\Administrator\\Desktop\\project-active\\py-xiaozhi && pyinstaller build_exe_web.spec\")",
+      "Bash(cmd /c \"dir c:\\Users\\Administrator\\Desktop\\project-active\\py-xiaozhi\\dist\\XiaozhiAI-Web\\*.exe\")",
+      "Bash(cmd /c \"echo. > c:\\Users\\Administrator\\Desktop\\project-active\\py-xiaozhi\\WEBVIEW_BUILD_GUIDE.md\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

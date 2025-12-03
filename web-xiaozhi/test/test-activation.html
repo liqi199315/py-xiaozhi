@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小智完整激活测试</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        /* 阶段卡片 */
+        .stage-card {
+            background: #f8f9fa;
+            border-left: 4px solid #e0e0e0;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        .stage-card.active {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+            box-shadow: 0 2px 8px rgba(33,150,243,0.3);
+        }
+        .stage-card.success {
+            background: #e8f5e9;
+            border-left-color: #4caf50;
+        }
+        .stage-card.error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+
+        .stage-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .stage-status {
+            font-size: 24px;
+        }
+        .stage-content {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* 设备信息 */
+        .device-info {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .device-info .info-item {
+            margin: 5px 0;
+        }
+        .device-info .label {
+            color: #64b5f6;
+            display: inline-block;
+            width: 150px;
+        }
+        .device-info .value {
+            color: #aed581;
+            word-break: break-all;
+        }
+
+        /* 验证码显示 */
+        .verification-code {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+            font-size: 24px;
+            letter-spacing: 8px;
+            font-weight: bold;
+            box-shadow: 0 4px 20px rgba(102,126,234,0.4);
+        }
+        .verification-code .code-label {
+            font-size: 16px;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+        .verification-code .code-value {
+            font-size: 48px;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* 按钮 */
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102,126,234,0.6);
+        }
+        button:disabled {
+            background: linear-gradient(135deg, #ccc 0%, #999 100%);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 30px 0;
+        }
+
+        /* 进度指示器 */
+        .progress {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.5s;
+        }
+
+        /* 日志 */
+        .log {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 3px 0;
+            padding: 2px 0;
+        }
+        .log-entry.info { color: #64b5f6; }
+        .log-entry.success { color: #81c784; }
+        .log-entry.error { color: #e57373; }
+        .log-entry.warn { color: #ffb74d; }
+
+        /* 提示框 */
+        .tip-box {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .tip-box .tip-title {
+            font-weight: bold;
+            color: #e65100;
+            margin-bottom: 8px;
+        }
+        .tip-box .tip-content {
+            color: #666;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 小智Web客户端 - 完整激活流程</h1>
+
+        <!-- 进度条 -->
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <!-- 阶段1: 设备身份 -->
+        <div class="stage-card" id="stage1">
+            <div class="stage-title">
+                <span>阶段1: 设备身份准备</span>
+                <span class="stage-status">⏳</span>
+            </div>
+            <div class="stage-content" id="stage1Content">
+                等待开始...
+            </div>
+        </div>
+
+        <!-- 阶段2: OTA配置 -->
+        <div class="stage-card" id="stage2">
+            <div class="stage-title">
+                <span>阶段2: 获取OTA配置</span>
+                <span class="stage-status">⏳</span>
+            </div>
+            <div class="stage-content" id="stage2Content">
+                等待开始...
+            </div>
+        </div>
+
+        <!-- 阶段3: 设备激活 -->
+        <div class="stage-card" id="stage3">
+            <div class="stage-title">
+                <span>阶段3: 设备激活</span>
+                <span class="stage-status">⏳</span>
+            </div>
+            <div class="stage-content" id="stage3Content">
+                等待开始...
+            </div>
+        </div>
+
+        <!-- 阶段4: 连接测试 -->
+        <div class="stage-card" id="stage4">
+            <div class="stage-title">
+                <span>阶段4: WebSocket连接测试</span>
+                <span class="stage-status">⏳</span>
+            </div>
+            <div class="stage-content" id="stage4Content">
+                等待开始...
+            </div>
+        </div>
+
+        <!-- 控制按钮 -->
+        <div class="button-group">
+            <button id="btnStart">🚀 开始完整流程</button>
+            <button id="btnReset">🔄 重置设备身份</button>
+            <button id="btnClearLog">🗑️ 清空日志</button>
+        </div>
+
+        <!-- 提示信息 -->
+        <div class="tip-box">
+            <div class="tip-title">💡 使用说明</div>
+            <div class="tip-content">
+                1. 点击"开始完整流程"自动完成所有阶段<br>
+                2. 如果需要激活，会显示验证码，请打开 <a href="https://xiaozhi.me" target="_blank">xiaozhi.me</a> 输入<br>
+                3. 激活成功后会自动连接到服务器<br>
+                4. 测试用的设备身份保存在浏览器localStorage中
+            </div>
+        </div>
+
+        <!-- 日志面板 -->
+        <div class="log" id="logPanel">
+            <div class="log-entry info">系统就绪，点击"开始完整流程"</div>
+        </div>
+    </div>
+
+    <!-- 引入依赖 -->
+    <script src="../js/device.js"></script>
+    <script src="../js/ota.js"></script>
+    <script src="../js/activator.js"></script>
+    <script src="../js/protocol.js"></script>
+
+    <script>
+        // 全局变量
+        let device = null;
+        let ota = null;
+        let activator = null;
+        let protocol = null;
+        let currentStage = 0;
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const logPanel = document.getElementById('logPanel');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logPanel.appendChild(entry);
+            logPanel.scrollTop = logPanel.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // 更新阶段状态
+        function updateStage(stageNum, status, content) {
+            const stageCard = document.getElementById(`stage${stageNum}`);
+            const stageContent = document.getElementById(`stage${stageNum}Content`);
+            const statusIcon = stageCard.querySelector('.stage-status');
+
+            // 移除所有状态类
+            stageCard.classList.remove('active', 'success', 'error');
+
+            // 添加新状态
+            if (status === 'active') {
+                stageCard.classList.add('active');
+                statusIcon.textContent = '⏳';
+            } else if (status === 'success') {
+                stageCard.classList.add('success');
+                statusIcon.textContent = '✅';
+            } else if (status === 'error') {
+                stageCard.classList.add('error');
+                statusIcon.textContent = '❌';
+            }
+
+            // 更新内容
+            if (content) {
+                stageContent.innerHTML = content;
+            }
+        }
+
+        // 更新进度条
+        function updateProgress(percent) {
+            document.getElementById('progressBar').style.width = percent + '%';
+        }
+
+        // 阶段1: 设备身份准备
+        async function stage1_deviceIdentity() {
+            try {
+                updateStage(1, 'active', '正在生成设备身份...');
+                updateProgress(10);
+                log('开始阶段1: 设备身份准备', 'info');
+
+                // 创建设备身份
+                device = new DeviceIdentity();
+                const deviceInfo = device.getDeviceInfo();
+
+                // 显示设备信息
+                const content = `
+                    <div class="device-info">
+                        <div class="info-item">
+                            <span class="label">序列号:</span>
+                            <span class="value">${deviceInfo.serial_number}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">MAC地址:</span>
+                            <span class="value">${deviceInfo.mac_address}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Client ID:</span>
+                            <span class="value">${deviceInfo.client_id}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">激活状态:</span>
+                            <span class="value">${deviceInfo.is_activated ? '已激活' : '未激活'}</span>
+                        </div>
+                    </div>
+                `;
+
+                updateStage(1, 'success', content);
+                updateProgress(25);
+                log('✅ 设备身份准备完成', 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ 设备身份准备失败: ${error.message}`, 'error');
+                updateStage(1, 'error', `错误: ${error.message}`);
+                throw error;
+            }
+        }
+
+        // 阶段2: 获取OTA配置
+        async function stage2_otaConfig() {
+            try {
+                updateStage(2, 'active', '正在连接OTA服务器...');
+                updateProgress(30);
+                log('开始阶段2: 获取OTA配置', 'info');
+
+                // 创建OTA管理器
+                ota = new OTAManager(device);
+
+                // 获取配置
+                const config = await ota.fetchConfig('v2');
+
+                // 显示配置信息
+                let content = '<div class="device-info">';
+
+                if (config.websocket) {
+                    const isValidToken = config.websocket.token && config.websocket.token !== 'test-token';
+                    const tokenStyle = isValidToken ? 'color: #81c784;' : 'color: #e57373;';
+                    const tokenWarning = isValidToken ? '' : ' ⚠️ (无效)';
+
+                    content += `
+                        <div class="info-item">
+                            <span class="label">WebSocket URL:</span>
+                            <span class="value">${config.websocket.url}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Access Token:</span>
+                            <span class="value" style="${tokenStyle}">${config.websocket.token}${tokenWarning}</span>
+                        </div>
+                    `;
+
+                    // 如果token无效，添加警告
+                    if (!isValidToken) {
+                        content += `
+                            <div class="info-item" style="color: #ff9800; background: #fff3e0; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                                <strong>⚠️ 警告:</strong> Access Token无效！<br>
+                                这通常意味着设备未正确激活。<br>
+                                <strong>建议:</strong> 点击下方"重置设备身份"按钮重新激活。
+                            </div>
+                        `;
+                    }
+                }
+
+                if (config.need_activation) {
+                    content += `
+                        <div class="info-item" style="color: #ffb74d;">
+                            <span class="label">⚠️ 激活状态:</span>
+                            <span class="value">需要激活</span>
+                        </div>
+                    `;
+                } else {
+                    content += `
+                        <div class="info-item" style="color: #81c784;">
+                            <span class="label">✅ 激活状态:</span>
+                            <span class="value">已激活</span>
+                        </div>
+                    `;
+                }
+
+                content += '</div>';
+
+                // 检查token有效性
+                const isValidToken = config.websocket?.token && config.websocket.token !== 'test-token';
+
+                // 如果需要激活，token无效是正常的，不应该报错
+                if (!isValidToken && !config.need_activation) {
+                    updateStage(2, 'error', content);
+                    log('⚠️ Access Token无效，且服务器未返回激活信息', 'error');
+                    log('这可能是服务器配置问题，请联系管理员', 'error');
+                    throw new Error('Access Token无效，且无法激活');
+                }
+
+                updateStage(2, 'success', content);
+                updateProgress(50);
+                log('✅ OTA配置获取完成', 'success');
+
+                if (config.need_activation) {
+                    log('⚠️ 设备需要激活，将进入激活流程', 'warn');
+                }
+
+                return config;
+
+            } catch (error) {
+                log(`❌ OTA配置获取失败: ${error.message}`, 'error');
+                updateStage(2, 'error', `错误: ${error.message}`);
+                throw error;
+            }
+        }
+
+        // 阶段3: 设备激活
+        async function stage3_activation(config) {
+            try {
+                // 如果不需要激活，跳过
+                if (!config.need_activation) {
+                    updateStage(3, 'success', '设备已激活，无需激活流程');
+                    updateProgress(75);
+                    log('✅ 设备已激活', 'success');
+                    return true;  // 返回true，继续执行阶段4
+                }
+
+                updateStage(3, 'active', '正在激活设备...');
+                updateProgress(55);
+                log('开始阶段3: 设备激活', 'info');
+
+                // 显示验证码
+                const activation = config.activation;
+                const codeDisplay = `
+                    <div class="verification-code">
+                        <div class="code-label">请在 xiaozhi.me 输入验证码</div>
+                        <div class="code-value">${activation.code}</div>
+                    </div>
+                    <div style="text-align: center; color: #666; margin-top: 10px;">
+                        正在等待激活... (最多等待5分钟)
+                    </div>
+                `;
+                updateStage(3, 'active', codeDisplay);
+
+                log(`请在 xiaozhi.me 输入验证码: ${activation.code}`, 'warn');
+
+                // 创建激活器
+                activator = new DeviceActivator(device, ota);
+
+                // 开始激活
+                const success = await activator.activate(activation.challenge, activation.code);
+
+                if (success) {
+                    // 激活成功，标记本地状态
+                    device.setActivationStatus(true);
+
+                    // 清除旧的OTA配置缓存
+                    localStorage.removeItem('xiaozhi_ota_config');
+                    log('🗑️ 已清除旧的OTA配置缓存', 'info');
+
+                    updateStage(3, 'active', `
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="font-size: 48px; margin-bottom: 20px;">🎉</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #4caf50; margin-bottom: 15px;">
+                                设备激活成功！
+                            </div>
+                            <div style="color: #666; line-height: 1.8;">
+                                <p>✅ 设备已成功激活并绑定到您的账号</p>
+                                <p>⏳ 正在自动获取真实Token...</p>
+                            </div>
+                        </div>
+                    `);
+
+                    log('✅ 设备激活成功！', 'success');
+                    log('⏳ 等待3秒后重新获取配置...', 'info');
+
+                    // 等待3秒，让服务器处理激活
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+
+                    // 尝试最多5次重新获取配置
+                    const maxRetries = 5;
+                    let retryCount = 0;
+                    let newConfig = null;
+
+                    while (retryCount < maxRetries) {
+                        retryCount++;
+                        log(`🔄 第${retryCount}次尝试获取新配置...`, 'info');
+
+                        try {
+                            // 重新获取配置
+                            newConfig = await ota.fetchConfig('v2');
+
+                            // 检查是否获取到真实token
+                            const newToken = newConfig.websocket?.token;
+                            const isValidToken = newToken && newToken !== 'test-token';
+
+                            if (isValidToken) {
+                                log(`✅ 成功获取真实Token: ${newToken}`, 'success');
+
+                                const successContent = `
+                                    <div style="text-align: center; padding: 20px;">
+                                        <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
+                                        <div style="font-size: 20px; font-weight: bold; color: #4caf50; margin-bottom: 15px;">
+                                            激活成功！Token已获取
+                                        </div>
+                                        <div style="color: #666; line-height: 1.8;">
+                                            <p>✅ 设备已激活</p>
+                                            <p>✅ 真实Token已获取</p>
+                                            <p>✅ 准备连接WebSocket...</p>
+                                        </div>
+                                    </div>
+                                `;
+                                updateStage(3, 'success', successContent);
+                                updateProgress(75);
+
+                                // 返回新配置，继续执行阶段4
+                                return newConfig;
+                            }
+
+                            // 还是test-token，继续重试
+                            log(`⚠️ 第${retryCount}次获取仍是test-token，${retryCount < maxRetries ? '继续重试' : '达到最大重试次数'}...`, 'warn');
+
+                            if (retryCount < maxRetries) {
+                                await new Promise(resolve => setTimeout(resolve, 3000));
+                            }
+
+                        } catch (error) {
+                            log(`❌ 第${retryCount}次获取配置失败: ${error.message}`, 'error');
+                            if (retryCount < maxRetries) {
+                                await new Promise(resolve => setTimeout(resolve, 3000));
+                            }
+                        }
+                    }
+
+                    // 达到最大重试次数仍未获取到真实token
+                    log('⚠️ 多次尝试后仍未获取到真实Token', 'warn');
+                    log('💡 建议：等待1-2分钟后刷新页面重试', 'warn');
+
+                    const fallbackContent = `
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #ff9800; margin-bottom: 15px;">
+                                激活成功，但Token获取延迟
+                            </div>
+                            <div style="color: #666; line-height: 1.8; margin: 15px 0;">
+                                <p>✅ 设备已成功激活</p>
+                                <p>⚠️ 服务器Token生成需要更多时间</p>
+                                <p>💡 请等待1-2分钟后刷新页面</p>
+                            </div>
+                            <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin: 15px 0; color: #666;">
+                                <strong style="color: #ff9800;">⏰ 建议操作：</strong><br>
+                                1. 等待 1-2 分钟<br>
+                                2. 刷新页面<br>
+                                3. 点击"开始完整流程"<br>
+                                4. 系统将自动使用真实Token连接
+                            </div>
+                            <button onclick="location.reload()"
+                                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                           color: white; border: none; padding: 15px 40px;
+                                           font-size: 16px; border-radius: 8px; cursor: pointer;
+                                           margin-top: 20px; box-shadow: 0 4px 15px rgba(102,126,234,0.4);">
+                                🔄 刷新页面（请先等待1-2分钟）
+                            </button>
+                        </div>
+                    `;
+
+                    updateStage(3, 'success', fallbackContent);
+                    updateProgress(100);
+
+                    // 跳过阶段4
+                    return 'skip_stage4';
+
+                } else {
+                    throw new Error('激活失败，请重试');
+                }
+
+            } catch (error) {
+                log(`❌ 设备激活失败: ${error.message}`, 'error');
+                updateStage(3, 'error', `错误: ${error.message}`);
+                throw error;
+            }
+        }
+
+        // 阶段4: WebSocket连接测试
+        async function stage4_connection() {
+            try {
+                updateStage(4, 'active', '正在连接WebSocket服务器...');
+                updateProgress(80);
+                log('开始阶段4: WebSocket连接测试', 'info');
+
+                const wsUrl = ota.getWebSocketURL();
+                const wsToken = ota.getWebSocketToken();
+                const deviceInfo = device.getDeviceInfo();
+
+                if (!wsUrl || !wsToken) {
+                    throw new Error('缺少WebSocket配置');
+                }
+
+                log(`WebSocket URL: ${wsUrl}`, 'info');
+                log(`Access Token: ${wsToken}`, 'info');
+
+                // 创建协议实例
+                const config = {
+                    WEBSOCKET_URL: wsUrl,
+                    ACCESS_TOKEN: wsToken,
+                    DEVICE_ID: deviceInfo.device_id,
+                    CLIENT_ID: deviceInfo.client_id,
+                    AUDIO: {
+                        FORMAT: 'opus',
+                        SAMPLE_RATE: 16000,
+                        CHANNELS: 1,
+                        FRAME_DURATION: 20
+                    }
+                };
+
+                protocol = new XiaozhiProtocol(config);
+
+                // 设置回调
+                protocol.onConnected = (message) => {
+                    log(`✅ WebSocket连接成功! Session ID: ${message.session_id}`, 'success');
+
+                    const content = `
+                        <div class="device-info">
+                            <div class="info-item">
+                                <span class="label">连接状态:</span>
+                                <span class="value" style="color: #81c784;">已连接</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Session ID:</span>
+                                <span class="value">${message.session_id}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">传输方式:</span>
+                                <span class="value">${message.transport}</span>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 15px;">
+                            <p style="color: #4caf50; font-weight: bold;">🎉 恭喜！所有阶段完成！</p>
+                            <p style="color: #666;">现在可以开始使用语音对话功能了</p>
+                        </div>
+                    `;
+
+                    updateStage(4, 'success', content);
+                    updateProgress(100);
+                };
+
+                protocol.onDisconnected = (reason) => {
+                    log(`连接断开: ${reason}`, 'warn');
+                };
+
+                protocol.onError = (error) => {
+                    log(`连接错误: ${error.message}`, 'error');
+                };
+
+                // 连接
+                await protocol.connect();
+
+            } catch (error) {
+                log(`❌ WebSocket连接失败: ${error.message}`, 'error');
+                updateStage(4, 'error', `错误: ${error.message}`);
+                throw error;
+            }
+        }
+
+        // 完整流程
+        async function runFullProcess() {
+            try {
+                document.getElementById('btnStart').disabled = true;
+                log('========== 开始完整激活流程 ==========', 'info');
+
+                // 阶段1
+                await stage1_deviceIdentity();
+                await sleep(500);
+
+                // 阶段2
+                let config = await stage2_otaConfig();
+                await sleep(500);
+
+                // 阶段3
+                const activationResult = await stage3_activation(config);
+
+                // 如果激活成功并返回了新配置，使用新配置
+                if (activationResult && typeof activationResult === 'object' && activationResult.websocket) {
+                    log('✅ 使用激活后获取的新配置', 'success');
+                    config = activationResult;  // 更新config为新配置
+                    await sleep(500);
+
+                    // 继续执行阶段4，使用新的真实token
+                    await stage4_connection();
+                    log('========== 完整流程成功完成！ ==========', 'success');
+                } else if (activationResult === 'skip_stage4') {
+                    // 激活成功但未获取到真实token，需要刷新
+                    log('========== 激活完成，请等待后刷新页面！ ==========', 'warn');
+                    return;  // 终止流程
+                } else {
+                    // 设备已激活，直接连接
+                    await sleep(500);
+                    await stage4_connection();
+                    log('========== 完整流程成功完成！ ==========', 'success');
+                }
+
+            } catch (error) {
+                log(`流程中断: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('btnStart').disabled = false;
+            }
+        }
+
+        // 重置设备
+        function resetDevice() {
+            if (confirm('确定要重置设备身份吗？这将清除本地存储的所有设备信息。')) {
+                localStorage.clear();
+                log('设备身份已重置', 'warn');
+                location.reload();
+            }
+        }
+
+        // 工具函数
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // 事件监听
+        document.getElementById('btnStart').onclick = runFullProcess;
+        document.getElementById('btnReset').onclick = resetDevice;
+        document.getElementById('btnClearLog').onclick = () => {
+            document.getElementById('logPanel').innerHTML = '';
+            log('日志已清空', 'info');
+        };
+
+        // 页面加载完成
+        window.onload = () => {
+            log('系统初始化完成，准备就绪', 'success');
+            log('点击"开始完整流程"体验完整的设备激活流程', 'info');
+        };
+    </script>
+</body>
+</html>

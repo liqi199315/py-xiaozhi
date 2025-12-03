@@ -210,12 +210,22 @@ class Ota:
                 )
                 self.logger.info(f"WebSocket URL已更新: {websocket_info['url']}")
 
-            # 更新WebSocket Token
-            token_value = websocket_info.get("token", "test-token") or "test-token"
-            self.config.update_config(
-                "SYSTEM_OPTIONS.NETWORK.WEBSOCKET_ACCESS_TOKEN", token_value
-            )
-            self.logger.info("WebSocket Token已更新")
+            # 更新WebSocket Token（仅在返回有效值时覆盖，避免写回占位 token）
+            token_value = websocket_info.get("token")
+            if token_value and token_value != "test-token":
+                self.config.update_config(
+                    "SYSTEM_OPTIONS.NETWORK.WEBSOCKET_ACCESS_TOKEN", token_value
+                )
+                masked = (
+                    f"{token_value[:4]}...{token_value[-4:]}"
+                    if len(token_value) > 8
+                    else token_value
+                )
+                self.logger.info(f"WebSocket Token已更新（掩码）：{masked}")
+            else:
+                self.logger.warning(
+                    "WebSocket Token为空或为占位值，保留现有配置中的 token"
+                )
 
             return websocket_info
         else:

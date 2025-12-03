@@ -1,0 +1,54 @@
+[Unit]
+Description=Xiaozhi AI Client
+Documentation=https://github.com/huangjunsen0406/py-xiaozhi
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# 用户和工作目录（请修改为实际路径）
+User=your_username
+Group=your_username
+WorkingDirectory=/path/to/py-xiaozhi
+
+# 环境变量配置
+Environment="XIAOZHI_DISABLE_TRAY=1"
+Environment="QT_QPA_PLATFORM=offscreen"
+Environment="XIAOZHI_WEB_HOST=0.0.0.0"
+Environment="XIAOZHI_WEB_PORT=8080"
+
+# 启动命令
+# 选项1: WebSocket协议（默认）
+ExecStart=/usr/bin/python3 main.py --mode cli --protocol websocket
+
+# 选项2: MQTT协议（取消注释使用）
+# ExecStart=/usr/bin/python3 main.py --mode cli --protocol mqtt
+
+# 选项3: 跳过激活（已激活设备，取消注释使用）
+# ExecStart=/usr/bin/python3 main.py --mode cli --protocol websocket --skip-activation
+
+# 重启配置
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=300
+StartLimitBurst=5
+
+# 资源限制（可选）
+# MemoryLimit=1G
+# CPUQuota=50%
+
+# 安全配置（可选，增强安全性）
+# NoNewPrivileges=true
+# PrivateTmp=true
+# ProtectSystem=strict
+# ProtectHome=true
+# ReadWritePaths=/path/to/py-xiaozhi/logs /path/to/py-xiaozhi/cache /path/to/py-xiaozhi/config
+
+# 日志配置
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=xiaozhi
+
+[Install]
+WantedBy=multi-user.target
