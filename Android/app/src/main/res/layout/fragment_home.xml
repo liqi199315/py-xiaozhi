@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050505"
+    android:padding="24dp">
+
+    <!-- 背景装饰 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0.05"
+        android:background="@android:drawable/screen_background_dark_transparent" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <!-- 标题 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="eShowcase AI"
+            android:textColor="#00F3FF"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:shadowColor="#8000F3FF"
+            android:shadowRadius="20"
+            android:letterSpacing="0.1" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="INTELLIGENT VIRTUAL ASSISTANT"
+            android:textColor="#66FFFFFF"
+            android:textSize="10sp"
+            android:letterSpacing="0.2" />
+
+        <!-- 状态面板 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="48dp"
+            android:background="@drawable/bg_tech_panel"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="20dp">
+
+            <View
+                android:id="@+id/viewStatusDot"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/bg_status_dot_red" />
+
+            <TextView
+                android:id="@+id/txtHomeStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="準備就緒"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+        <!-- 操作按钮 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnEnterChat"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="32dp"
+            android:text="進入對話"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_neon_button"
+            app:cornerRadius="32dp"
+            app:icon="@android:drawable/ic_btn_speak_now"
+            app:iconGravity="textStart"
+            app:iconPadding="12dp"
+            app:iconTint="#FFFFFF"
+            android:elevation="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnActivation"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="16dp"
+            android:text="設備激活"
+            android:textColor="#00F3FF"
+            app:strokeColor="#4000F3FF"
+            app:strokeWidth="1dp"
+            app:cornerRadius="28dp" />
+
+    </LinearLayout>
+
+    <!-- 底部日志区域 -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:layout_alignParentBottom="true"
+        android:background="#1A00F3FF"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/txtHomeLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:text="系統日誌就緒..."
+            android:textColor="#8000F3FF"
+            android:textSize="10sp" />
+    </ScrollView>
+
+</RelativeLayout>

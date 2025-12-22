@@ -1,0 +1,18 @@
+# 精简版依赖 - 仅用于Web服务和豆包ASR
+# 适用于线上部署，不包含桌面GUI、音频处理等功能
+
+# Web服务核心依赖
+aiohttp==3.12.13
+websockets==11.0.3
+
+# 日志
+colorlog==6.9.0
+
+# 工具库
+requests==2.32.3
+python-dateutil==2.9.0.post0
+beautifulsoup4==4.12.3
+py-machineid==0.8.0
+
+# 可选：环境变量管理
+python-dotenv==1.0.0

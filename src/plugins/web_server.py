@@ -88,6 +88,9 @@ class WebServerPlugin(Plugin):
         # WebSocket 代理路由（用于 Web 前端）
         self._aiohttp_app.router.add_get("/api/ws-proxy", self._handle_websocket_proxy)
         
+        # 豆包语音识别 WebSocket 端点（独立功能）
+        self._aiohttp_app.router.add_get("/api/doubao-asr", self._handle_doubao_asr)
+        
         # Add static file serving for web directory
         web_dir = self._index_path.parent
         self._aiohttp_app.router.add_static("/", web_dir, show_index=False)
@@ -450,6 +453,150 @@ class WebServerPlugin(Plugin):
                 await client_ws.close()
             if not backend_ws.closed:
                 await backend_ws.close()
+
+    async def _handle_doubao_asr(self, request: web.Request) -> web.WebSocketResponse:
+        """
+        豆包语音识别 WebSocket 端点
+        
+        浏览器通过这个端点发送音频流，后端调用豆包 ASR 服务识别，
+        识别完成后的文本直接发送给 AI 系统。
+        """
+        from src.audio_processing.doubao_asr import DoubaoASRClient, DoubaoASRConfig
+        
+        # 准备 WebSocket 响应
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        
+        logger.info("[豆包ASR] 新的客户端连接")
+        
+        # 从环境变量或配置读取豆包凭证
+        app_key = os.getenv("DOUBAO_APP_KEY", "2785683478")
+        access_key = os.getenv("DOUBAO_ACCESS_KEY", "OHl7yBW1VI5M9f4oI26RDU-3xPtkAGZp")
+        
+        # 创建豆包配置
+        doubao_config = DoubaoASRConfig(
+            app_key=app_key,
+            access_key=access_key,
+            sample_rate=16000,
+            bits=16,
+            channels=1
+        )
+        
+        # 创建豆包客户端
+        doubao_client = DoubaoASRClient(doubao_config)
+        
+        try:
+            # 连接豆包服务器
+            if not await doubao_client.connect():
+                await ws.send_json({"type": "error", "message": "无法连接到豆包服务器"})
+                await ws.close()
+                return ws
+            
+            # 发送初始化请求
+            if not await doubao_client.send_init_request():
+                await ws.send_json({"type": "error", "message": "豆包初始化失败"})
+                await ws.close()
+                return ws
+            
+            # 告诉前端已准备好
+            await ws.send_json({"type": "ready", "message": "豆包ASR已准备好"})
+            logger.info("[豆包ASR] 已连接并初始化完成")
+            
+            # 创建接收任务
+            async def receive_results():
+                """接收豆包识别结果"""
+                try:
+                    full_text = ""
+                    async for response in doubao_client.receive_results():
+                        if response.payload_msg:
+                            result = response.payload_msg.get('result', {})
+                            text = result.get('text', '')
+                            
+                            if text:
+                                full_text = text
+                                # 发送中间结果给前端
+                                await ws.send_json({
+                                    "type": "partial",
+                                    "text": text,
+                                    "is_final": response.is_last_package
+                                })
+                                logger.info(f"[豆包ASR] 识别结果: {text}")
+                            
+                            # 如果是最后一个包，发送文本给 AI
+                            if response.is_last_package and full_text:
+                                logger.info(f"[豆包ASR] 最终识别文本: {full_text}")
+                                # 发送给 AI 系统
+                                if hasattr(self.app, 'protocol'):
+                                    try:
+                                        await self.app.protocol.send_wake_word_detected(full_text)
+                                        # 广播事件
+                                        self._broadcaster.publish({
+                                            "event": "local",
+                                            "payload": {"type": "stt", "text": full_text}
+                                        })
+                                    except Exception as e:
+                                        logger.error(f"[豆包ASR] 发送文本给AI失败: {e}")
+                                
+                                # 通知前端完成
+                                await ws.send_json({
+                                    "type": "complete",
+                                    "text": full_text
+                                })
+                                
+                except Exception as e:
+                    logger.error(f"[豆包ASR] 接收结果错误: {e}")
+                    await ws.send_json({"type": "error", "message": str(e)})
+            
+            # 创建发送任务
+            async def send_audio():
+                """接收前端音频并发送给豆包"""
+                try:
+                    seq = 0
+                    async for msg in ws:
+                        if msg.type == WSMsgType.BINARY:
+                            # 收到音频数据
+                            audio_data = msg.data
+                            logger.debug(f"[豆包ASR] 收到音频块: {len(audio_data)} 字节")
+                            
+                            # 发送给豆包
+                            await doubao_client.send_audio_chunk(audio_data, is_last=False)
+                            seq += 1
+                            
+                        elif msg.type == WSMsgType.TEXT:
+                            # 处理控制消息
+                            try:
+                                cmd = json.loads(msg.data)
+                                if cmd.get("type") == "stop":
+                                    # 发送结束标记
+                                    logger.info("[豆包ASR] 收到停止信号，发送结束标记")
+                                    await doubao_client.send_audio_chunk(b'', is_last=True)
+                                    break
+                            except Exception as e:
+                                logger.error(f"[豆包ASR] 解析控制消息失败: {e}")
+                                
+                        elif msg.type == WSMsgType.CLOSE:
+                            logger.info("[豆包ASR] 客户端关闭连接")
+                            break
+                except Exception as e:
+                    logger.error(f"[豆包ASR] 发送音频错误: {e}")
+            
+            # 并行运行接收和发送任务
+            await asyncio.gather(
+                receive_results(),
+                send_audio(),
+                return_exceptions=True
+            )
+            
+        except Exception as e:
+            logger.error(f"[豆包ASR] 处理连接失败: {e}", exc_info=True)
+            await ws.send_json({"type": "error", "message": str(e)})
+        finally:
+            logger.info("[豆包ASR] 关闭连接")
+            await doubao_client.close()
+            if not ws.closed:
+                await ws.close()
+        
+        return ws
 
     # -------------------- plugin hooks --------------------
     async def on_incoming_json(self, message: Any) -> None:

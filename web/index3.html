@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eShowcase AI</title>
+    <style>
+        /* --- CORE SYSTEM STYLES --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        body {
+            font-family: "Segoe UI", "Roboto Mono", monospace;
+            background-color: #050505;
+            color: #00f3ff;
+            overflow: hidden;
+            height: 100vh;
+            /* Tech Grid Background */
+            background-image:
+                linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* --- CANVAS LAYER --- */
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* --- UI OVERLAY LAYER --- */
+        .ui-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        /* --- STATUS HUD --- */
+        .hud-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 10, 15, 0.8);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            border-left: 4px solid #00f3ff;
+            padding: 10px 20px;
+            font-family: "Consolas", monospace;
+            font-size: 12px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+            transform: skewX(-10deg);
+        }
+
+        .hud-content {
+            transform: skewX(10deg);
+        }
+
+        /* Counter-skew text */
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .led {
+            width: 6px;
+            height: 6px;
+            background: #333;
+            box-shadow: 0 0 5px #333;
+            transition: all 0.3s;
+        }
+
+        .led.active {
+            background: #00f3ff;
+            box-shadow: 0 0 8px #00f3ff;
+        }
+
+        .led.busy {
+            background: #ffaa00;
+            box-shadow: 0 0 8px #ffaa00;
+        }
+
+        .label {
+            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: 1px;
+        }
+
+        .value {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        /* --- COMMUNICATION LOG (Subtitle) --- */
+        .comm-area {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 800px;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .comm-box {
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0, 20, 30, 0.9) 20%, rgba(0, 20, 30, 0.9) 80%, rgba(0, 0, 0, 0) 100%);
+            border-top: 1px solid rgba(0, 243, 255, 0.3);
+            border-bottom: 1px solid rgba(0, 243, 255, 0.3);
+            padding: 20px 40px;
+            font-size: 18px;
+            line-height: 1.6;
+            color: #e0ffff;
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.4);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .comm-box.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .comm-label {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            background: #000;
+            color: #00f3ff;
+            padding: 0 10px;
+            border: 1px solid #00f3ff;
+            font-family: monospace;
+        }
+
+        /* --- CONTROL DECK --- */
+        .control-deck {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+            pointer-events: auto;
+            background: rgba(0, 5, 10, 0.8);
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Tech Buttons */
+        .btn {
+            background: rgba(0, 243, 255, 0.05);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            color: #00f3ff;
+            padding: 0 20px;
+            height: 40px;
+            font-family: "Consolas", monospace;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 2px;
+            height: 100%;
+            background: #00f3ff;
+            opacity: 0.5;
+        }
+
+        .btn:hover {
+            background: rgba(0, 243, 255, 0.15);
+            border-color: #00f3ff;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+
+        .btn:active {
+            background: rgba(0, 243, 255, 0.3);
+        }
+
+        .btn.active {
+            background: #00f3ff;
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+        }
+
+        .btn.danger {
+            border-color: #ff3366;
+            color: #ff3366;
+        }
+
+        .btn.danger::before {
+            background: #ff3366;
+        }
+
+        .btn.danger:hover {
+            background: rgba(255, 51, 102, 0.15);
+            border-color: #ff3366;
+            box-shadow: 0 0 15px rgba(255, 51, 102, 0.3);
+        }
+
+        /* Input Field */
+        .input-module {
+            display: flex;
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            background: rgba(0, 20, 30, 0.5);
+            position: relative;
+        }
+
+        .input-module::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            border-bottom: 2px solid #00f3ff;
+            border-right: 2px solid #00f3ff;
+        }
+
+        .term-input {
+            background: transparent;
+            border: none;
+            color: #fff;
+            padding: 0 15px;
+            font-family: "Segoe UI", sans-serif;
+            font-size: 14px;
+            width: 350px;
+            height: 40px;
+        }
+
+        .term-input::placeholder {
+            color: rgba(0, 243, 255, 0.3);
+            font-family: monospace;
+        }
+
+        .btn-send {
+            border: none;
+            border-left: 1px solid rgba(0, 243, 255, 0.3);
+            background: rgba(0, 243, 255, 0.1);
+            color: #00f3ff;
+            width: 50px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-send:hover {
+            background: rgba(0, 243, 255, 0.3);
+        }
+
+        /* Loading Overlay */
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .hex-loader {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 243, 255, 0.1);
+            border: 2px solid #00f3ff;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            animation: pulse 1.5s infinite ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hex-inner {
+            width: 30px;
+            height: 30px;
+            background: #00f3ff;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+        }
+
+        .loading-text {
+            font-family: monospace;
+            font-size: 14px;
+            letter-spacing: 4px;
+            color: #00f3ff;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.9);
+                opacity: 0.7;
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+                box-shadow: 0 0 20px #00f3ff;
+            }
+
+            100% {
+                transform: scale(0.9);
+                opacity: 0.7;
+            }
+        }
+
+        /* --- 1. 背景波动特效 (Aura Effects) --- */
+        #aura-layer {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            /* 在 Canvas 后面 */
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            mix-blend-mode: screen;
+            /* 让光效叠加更自然 */
+        }
+
+        /* 核心动画：缩放与淡入淡出 */
+        @keyframes pulse-wave {
+            0% {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0.3;
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.1);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0.3;
+            }
+        }
+
+        /* 听的状态：红色警示/录音风格 */
+        #aura-layer.mode-listening {
+            opacity: 1;
+            background: radial-gradient(circle, rgba(255, 50, 50, 0.4) 0%, rgba(255, 0, 0, 0) 60%);
+            animation: pulse-wave 2s infinite ease-in-out;
+        }
+
+        /* 说的状态：青色/科技风格 */
+        #aura-layer.mode-speaking {
+            opacity: 1;
+            background: radial-gradient(circle, rgba(0, 243, 255, 0.4) 0%, rgba(0, 243, 255, 0) 60%);
+            animation: pulse-wave 3s infinite ease-in-out;
+            /* 说话时波动慢一点 */
+        }
+
+        /* 思考/处理状态：黄色呼吸 */
+        #aura-layer.mode-processing {
+            opacity: 1;
+            background: radial-gradient(circle, rgba(255, 170, 0, 0.3) 0%, transparent 60%);
+            animation: pulse-wave 1.5s infinite linear;
+        }
+
+        /* --- 2. 手机端响应式适配 (Mobile Optimization) --- */
+        @media (max-width: 768px) {
+
+            /* 调整模型位置，给底部留出更多空间 */
+            #canvas {
+                top: -10% !important;
+                /* 模型上移 */
+            }
+
+            /* 状态栏稍微缩小 */
+            .hud-panel {
+                transform: none;
+                /* 取消倾斜以节省空间 */
+                border-left: 2px solid #00f3ff;
+                top: 10px;
+                right: 10px;
+                padding: 5px 10px;
+            }
+
+            .status-row {
+                font-size: 10px;
+            }
+
+            /* 通讯框上移 */
+            .comm-area {
+                bottom: 220px;
+                /* 给下方控制台留空 */
+                width: 95%;
+            }
+
+            .comm-box {
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+
+            /* 核心：控制台重构 */
+            .control-deck {
+                width: 100%;
+                bottom: 0;
+                left: 0;
+                transform: none;
+                flex-direction: column;
+                /* 垂直排列 */
+                gap: 8px;
+                padding: 15px;
+                background: rgba(0, 5, 10, 0.95);
+                /* 加深背景防止看不清 */
+                border-top: 1px solid #00f3ff;
+            }
+
+            /* 输入框整行占满 */
+            .input-module {
+                width: 100%;
+                order: 1;
+                /* 放在最上面 */
+            }
+
+            .term-input {
+                width: 100%;
+                /* 输入框自适应宽度 */
+                font-size: 16px;
+                /* 防止iOS自动放大 */
+            }
+
+            /* 语音按钮变大，方便按住 */
+            #btnSpeak {
+                width: 100%;
+                height: 50px;
+                order: 2;
+                /* 放在中间 */
+                font-size: 16px;
+                letter-spacing: 2px;
+                /* --- 新增：禁止长按弹出系统菜单 --- */
+                -webkit-touch-callout: none;
+                /* iOS Safari 禁用长按菜单 */
+                -webkit-user-select: none;
+                /* Safari 禁用文本选择 */
+                -moz-user-select: none;
+                /* Firefox */
+                -ms-user-select: none;
+                /* IE/Edge */
+                user-select: none;
+                /* 标准语法 */
+                touch-action: none;
+                /* 禁止浏览器处理触摸手势（如双击缩放） */
+            }
+
+            /* 中止按钮 */
+            #btnAbort {
+                width: 100%;
+                height: 35px;
+                order: 3;
+                /* 放在最下面 */
+            }
+        }
+
+        /* 语言选择器样式 */
+        .lang-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(0, 243, 255, 0.05);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            color: #00f3ff;
+            height: 30px;
+            padding: 0 10px;
+            font-family: "Consolas", monospace;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 5px;
+            /* 手机端布局间隔 */
+        }
+
+        .lang-selector:hover {
+            background: rgba(0, 243, 255, 0.15);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+
+        .lang-label {
+            opacity: 0.7;
+        }
+
+        .lang-current {
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        /* 手机端适配调整 */
+        @media (max-width: 768px) {
+            .lang-selector {
+                width: 100%;
+                /* 手机上占满一行 */
+                order: 0;
+                /* 放在最顶端 */
+            }
+
+            .input-module {
+                order: 1;
+            }
+
+            #btnSpeak {
+                order: 2;
+            }
+
+            #btnAbort {
+                order: 3;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="aura-layer"></div>
+    <canvas id="canvas"></canvas>
+
+    <div id="loading">
+        <div class="hex-loader">
+            <div class="hex-inner"></div>
+        </div>
+        <div class="loading-text">SYSTEM INITIALIZING</div>
+    </div>
+
+    <div class="ui-layer">
+        <!-- Top Right HUD -->
+        <div class="hud-panel">
+            <div class="hud-content">
+                <div class="status-row">
+                    <div class="led" id="conn-led"></div>
+                    <span class="label">LINK:</span>
+                    <span class="value" id="conn-status">OFFLINE</span>
+                </div>
+                <div class="status-row">
+                    <div class="led" id="state-led"></div>
+                    <span class="label">ANDREY:</span>
+                    <span class="value" id="state-text">STANDBY</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subtitle / Log Area -->
+        <div class="comm-area">
+            <div class="comm-box" id="comm-box">
+                <div class="comm-label">INCOMING TRANSMISSION</div>
+                <span id="comm-text">WAITING FOR SIGNAL...</span>
+            </div>
+        </div>
+
+        <!-- Bottom Control Deck -->
+        <div class="control-deck">
+            <div class="lang-selector" id="langSelectBtn">
+                <span class="lang-label">LANG:</span>
+                <span class="lang-current" id="currentLang">普</span>
+            </div>
+
+            <button class="btn" id="btnSpeak">HOLD TO SPEAK</button>
+
+            <div class="input-module">
+                <input type="text" class="term-input" id="textInput" placeholder="ENTER COMMAND..." autocomplete="off">
+                <button class="btn-send" id="btnSend">➤</button>
+            </div>
+
+            <button class="btn danger" id="btnAbort">ABORT</button>
+        </div>
+    </div>
+
+    <!-- PixiJS v6 & Live2D SDK -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
+
+    <!-- 豆包语音识别模块 -->
+    <script src="./doubao-asr.js"></script>
+
+    <script>
+        // Global PIXI for auto-update
+        window.PIXI = PIXI;
+
+        // UI Elements
+        const ui = {
+            canvas: document.getElementById('canvas'),
+            loading: document.getElementById('loading'),
+            commBox: document.getElementById('comm-box'),
+            commText: document.getElementById('comm-text'),
+            connLed: document.getElementById('conn-led'),
+            connStatus: document.getElementById('conn-status'),
+            stateLed: document.getElementById('state-led'),
+            stateText: document.getElementById('state-text'),
+            btnSpeak: document.getElementById('btnSpeak'),
+            textInput: document.getElementById('textInput'),
+            btnSend: document.getElementById('btnSend'),
+            btnAbort: document.getElementById('btnAbort'),
+            aura: document.getElementById('aura-layer')
+        };
+
+        let app, model;
+        let isRecording = false;
+        let isSpeaking = false;
+        let lipSyncInterval = null;
+        let isPressing = false; // 记录物理按压状态
+
+        // Init PixiJS
+        app = new PIXI.Application({
+            view: ui.canvas,
+            autoStart: true,
+            transparent: true,
+            resizeTo: window
+        });
+
+        // Load Model
+        (async () => {
+            try {
+                model = await PIXI.live2d.Live2DModel.from('./live2d/haru/haru_greeter_t05.model3.json');
+
+                // Setup Model
+                model.anchor.set(0.5, 0.5);
+                model.position.set(window.innerWidth / 2, window.innerHeight * 0.65);
+                model.scale.set(window.innerHeight * 0.85 / model.height);
+
+                app.stage.addChild(model);
+                ui.loading.style.display = 'none';
+
+                if (model.internalModel.motionManager) {
+                    model.motion('Idle');
+                }
+                console.log('System Online.');
+            } catch (error) {
+                console.error('Init Failed:', error);
+                ui.loading.innerHTML = '<div style="color:#ff3366">SYSTEM ERROR</div>';
+            }
+        })();
+
+        // Resize Handler
+        window.addEventListener('resize', () => {
+            if (model) {
+                model.position.set(window.innerWidth / 2, window.innerHeight * 0.65);
+                model.scale.set(window.innerHeight * 0.85 / model.height);
+            }
+        });
+
+        // --- Logic Functions ---
+
+        function showMessage(text) {
+            ui.commText.textContent = text;
+            ui.commBox.classList.add('active');
+
+            // Auto hide after 5s
+            if (window.msgTimeout) clearTimeout(window.msgTimeout);
+            window.msgTimeout = setTimeout(() => {
+                ui.commBox.classList.remove('active');
+            }, 5000);
+        }
+
+        function updateStatus(connected, state) {
+            // 1. 连接状态更新
+            if (connected !== null) {
+                ui.connStatus.textContent = connected ? "ONLINE" : "OFFLINE";
+                ui.connLed.className = connected ? "led active" : "led";
+            }
+
+            // 2. 状态机更新
+            if (state) {
+                ui.stateText.textContent = state.toUpperCase();
+
+                // --- 重置背景特效 ---
+                ui.aura.className = '';
+
+                // --- 说话状态 (Speaking) ---
+                if (state === 'speaking') {
+                    ui.stateLed.className = "led active";
+                    ui.aura.classList.add('mode-speaking'); // 蓝色波动
+                    isSpeaking = true;
+                    startLipSync();
+                    if (model && model.motion) try { model.motion('Tap'); } catch (e) { }
+                }
+                // --- 听话状态 (Listening) ---
+                else if (state === 'listening') {
+                    ui.stateLed.className = "led busy";
+                    ui.aura.classList.add('mode-listening'); // 红色波动 !!!
+                    isSpeaking = false;
+                    stopLipSync();
+                }
+                // --- 处理状态 (Processing/Connecting) ---
+                else if (state === 'processing' || state === 'connecting') {
+                    ui.stateLed.className = "led busy";
+                    ui.aura.classList.add('mode-processing'); // 黄色呼吸
+                    isSpeaking = false;
+                    stopLipSync();
+                }
+                // --- 待机状态 (Idle) ---
+                else {
+                    ui.stateLed.className = "led";
+                    // idle 状态不加类名，特效自动淡出
+                    isSpeaking = false;
+                    stopLipSync();
+                }
+            }
+        }
+
+        // Gaze locking function to be called every frame
+        const forceGazeForward = () => {
+            if (model && model.internalModel && model.internalModel.coreModel) {
+                try {
+                    model.internalModel.coreModel.setParameterValueById('ParamAngleX', 0);
+                    model.internalModel.coreModel.setParameterValueById('ParamAngleY', 0);
+                    model.internalModel.coreModel.setParameterValueById('ParamAngleZ', 0);
+                    model.internalModel.coreModel.setParameterValueById('ParamBodyAngleX', 0);
+                    model.internalModel.coreModel.setParameterValueById('ParamEyeBallX', 0);
+                    model.internalModel.coreModel.setParameterValueById('ParamEyeBallY', 0);
+                } catch (e) { }
+            }
+        };
+
+        function startLipSync() {
+            if (lipSyncInterval || !model) return;
+
+            // Disable mouse interaction to prevent conflict
+            model.interactive = false;
+
+            // Add gaze locking to the render loop
+            app.ticker.add(forceGazeForward);
+
+            lipSyncInterval = setInterval(() => {
+                if (model && model.internalModel && isSpeaking) {
+                    try {
+                        const val = Math.random() * 0.8 + 0.2;
+                        model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', val);
+                    } catch (e) { }
+                }
+            }, 100);
+        }
+
+        function stopLipSync() {
+            if (lipSyncInterval) {
+                clearInterval(lipSyncInterval);
+                lipSyncInterval = null;
+            }
+
+            // Remove gaze locking
+            app.ticker.remove(forceGazeForward);
+
+            // Restore mouse interaction
+            if (model) model.interactive = true;
+
+            if (model && model.internalModel) {
+                try {
+                    model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0);
+                } catch (e) { }
+            }
+        }
+
+        // --- API & Interaction ---
+
+        // 配置与连接
+        const urlParams = new URLSearchParams(location.search);
+        const serverBase = (urlParams.get('server') || location.origin).replace(/\/$/, '');
+        // 同时兼容 http→ws、https→wss
+        const wsProxyBase = serverBase.replace(/^http/, 'ws') + '/api/ws-proxy';
+        const storageKeys = {
+            token: 'xiaozhi_web_token',
+            device: 'xiaozhi_web_device',
+            client: 'xiaozhi_web_client',
+        };
+        const config = {
+            token: urlParams.get('token') || '',
+            deviceId: urlParams.get('device') || 'web-client',
+            clientId: urlParams.get('client') || 'web-client',
+        };
+        let sessionId = '';
+        let websocket = null;
+        let wsPromise = null;
+        let helloSent = false;
+        let audioContext = null;
+        let audioUnlocked = false;
+        let audioQueue = [];
+        let isPlaying = false;
+        // WebCodecs Opus 解码
+        const OPUS_SAMPLE_RATE = 24000;
+        const OPUS_FRAME_US = 20000; // 20ms
+        let opusDecoder = null;
+        let opusTimestamp = 0;
+        let playHead = 0;
+        let nextStartTime = 0;
+        // 浏览器端语音识别（仅用于将语音转文本，再走文本接口）
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognizer = null;
+        let recognizing = false;
+        let sttStopTimer = null;
+        // 初始化时提示是否支持语音识别
+        if (!SpeechRecognition) {
+            console.warn('[STT] SpeechRecognition not supported in this browser/context');
+            showMessage('当前浏览器不支持语音识别');
+        }
+
+        // ==========================================
+        //  豆包语音识别模块 (Doubao ASR)
+        // ==========================================
+        let doubaoASR = null;
+        let useDoubao = true;  // 设为 true 使用豆包，false 使用浏览器原生
+
+        const initDoubaoASR = () => {
+            if (doubaoASR) return;
+
+            doubaoASR = new DoubaoASR(serverBase);
+
+            // 设置回调
+            doubaoASR.onPartialResult = (text) => {
+                showMessage(`识别中: ${text}`);
+            };
+
+            doubaoASR.onFinalResult = (text) => {
+                showMessage(`USER: ${text}`);
+                // 文本已在后端发送给 AI，这里无需再发送
+            };
+
+            doubaoASR.onError = (error) => {
+                showMessage(`ASR错误: ${error}`);
+                console.error('[豆包ASR] 错误:', error);
+            };
+
+            console.log('[豆包ASR] 模块已初始化');
+        };
+
+        const saveConfig = () => {
+            localStorage.setItem(storageKeys.token, config.token || '');
+            localStorage.setItem(storageKeys.device, config.deviceId || '');
+            localStorage.setItem(storageKeys.client, config.clientId || '');
+        };
+
+        const loadConfig = () => {
+            if (!config.token) config.token = localStorage.getItem(storageKeys.token) || '';
+            if (!urlParams.get('device')) config.deviceId = localStorage.getItem(storageKeys.device) || config.deviceId;
+            if (!urlParams.get('client')) config.clientId = localStorage.getItem(storageKeys.client) || config.clientId;
+        };
+
+        const fetchServerConfig = async () => {
+            try {
+                const res = await fetch(`${serverBase}/api/config`, { credentials: 'include' });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.token) config.token = data.token;
+                if (data.device_id) config.deviceId = data.device_id;
+                if (data.client_id) config.clientId = data.client_id;
+                saveConfig();
+            } catch (e) {
+                console.warn('Fetch config failed', e);
+            }
+        };
+
+        // 前端不再拼接任何 token/device/client，完全让后端代理兜底
+        const buildWsUrl = () => wsProxyBase;
+
+        const ensureAudioContext = async () => {
+            if (!audioContext) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioCtx({ sampleRate: 48000 });
+            }
+            if (audioContext.state === 'suspended') await audioContext.resume();
+        };
+
+        const unlockAudioContext = async () => {
+            if (audioUnlocked) return;
+            try {
+                await ensureAudioContext();
+                if (audioContext?.state === 'running') {
+                    audioUnlocked = true;
+                    window.removeEventListener('click', unlockAudioContext);
+                    window.removeEventListener('keydown', unlockAudioContext);
+                    window.removeEventListener('touchstart', unlockAudioContext);
+                    console.log('[Audio] unlocked by user gesture');
+                }
+            } catch (e) {
+                console.warn('[Audio] unlock failed', e);
+            }
+        };
+        window.addEventListener('click', unlockAudioContext, { once: false });
+        window.addEventListener('keydown', unlockAudioContext, { once: false });
+        window.addEventListener('touchstart', unlockAudioContext, { once: false });
+
+        const ensureOpusDecoder = () => {
+            if (!('AudioDecoder' in window) || opusDecoder) return opusDecoder;
+            try {
+                opusDecoder = new AudioDecoder({
+                    output: handleDecodedFrame,
+                    error: (e) => console.error('[OpusDecoder] error', e),
+                });
+                opusDecoder.configure({
+                    codec: 'opus',
+                    sampleRate: 48000,
+                    numberOfChannels: 1,
+                });
+                opusTimestamp = 0;
+                console.log('[OpusDecoder] configured');
+            } catch (e) {
+                console.warn('[OpusDecoder] init failed', e);
+                opusDecoder = null;
+            }
+            return opusDecoder;
+        };
+        // 语音输出
+        // const playQueue = () => {
+        //     if (isPlaying || !audioQueue.length || !audioContext) return;
+        //     const buffer = audioQueue.shift();
+        //     const source = audioContext.createBufferSource();
+        //     source.buffer = buffer;
+        //     source.connect(audioContext.destination);
+        //     source.onended = () => {
+        //         isPlaying = false;
+        //         playQueue();
+        //     };
+        //     isPlaying = true;
+        //     const startAt = Math.max(audioContext.currentTime, playHead || audioContext.currentTime);
+        //     source.start(startAt);
+        //     playHead = startAt + buffer.duration;
+        // };
+        const playQueue = () => {
+            // 如果队列空了，或者 AudioContext 还没准备好，直接返回
+            if (!audioQueue.length || !audioContext) return;
+
+            // 循环处理队列中的所有现有数据块
+            while (audioQueue.length > 0) {
+                const buffer = audioQueue.shift();
+                const source = audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioContext.destination);
+
+                // 【核心逻辑】计算播放时间
+                // 如果 nextStartTime 已经过去了（比如因为网络卡顿导致断流），
+                // 就重置为当前时间 + 一个极小的缓冲（0.05秒），避免听感上的“追赶”加速
+                if (nextStartTime < audioContext.currentTime) {
+                    nextStartTime = audioContext.currentTime + 0.05;
+                }
+
+                // 在预定的时间点开始播放，而不是现在
+                source.start(nextStartTime);
+
+                // 更新下一次的开始时间 = 当前开始时间 + 音频时长
+                nextStartTime += buffer.duration;
+            }
+        };
+
+        const handleBinaryMessage = async (data) => {
+            try {
+                await ensureAudioContext();
+                const arrayBuffer = data instanceof ArrayBuffer ? data : data.buffer;
+                console.log('[WS-BIN] recv bytes:', arrayBuffer.byteLength);
+
+                // 优先尝试 WebCodecs 解码裸 Opus 帧
+                if (ensureOpusDecoder() && opusDecoder?.state === 'configured') {
+                    const chunk = new EncodedAudioChunk({
+                        type: 'key',
+                        timestamp: opusTimestamp,
+                        duration: OPUS_FRAME_US,
+                        data: new Uint8Array(arrayBuffer),
+                    });
+                    opusTimestamp += OPUS_FRAME_US;
+                    opusDecoder.decode(chunk);
+                    return;
+                }
+
+                // 回退到 decodeAudioData（需完整容器格式）
+                const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+                if (audioQueue.length > 15) audioQueue.shift();
+                audioQueue.push(decoded);
+                console.log('[WS-BIN] queue size:', audioQueue.length);
+                playQueue();
+            } catch (e) {
+                console.error('Audio decode failed', e);
+                showMessage('Audio decode failed');
+            }
+        };
+
+        const handleDecodedFrame = async (audioData) => {
+            try {
+                await ensureAudioContext();
+                const { numberOfChannels, numberOfFrames, sampleRate } = audioData;
+                const audioBuffer = audioContext.createBuffer(numberOfChannels, numberOfFrames, sampleRate);
+                for (let ch = 0; ch < numberOfChannels; ch++) {
+                    const channelData = new Float32Array(numberOfFrames);
+                    audioData.copyTo(channelData, { planeIndex: ch });
+                    audioBuffer.copyToChannel(channelData, ch);
+                }
+                audioData.close();
+                if (audioQueue.length > 15) audioQueue.shift();
+                audioQueue.push(audioBuffer);
+                console.log('[OpusDecoder] push buffer, queue size:', audioQueue.length);
+                playQueue();
+            } catch (e) {
+                console.error('[OpusDecoder] handle frame failed', e);
+                showMessage('Audio decode failed');
+            }
+        };
+
+        const handleJsonMessage = (msg) => {
+            const type = msg.type;
+
+            // 1. 处理握手
+            if (type === 'hello') {
+                sessionId = msg.session_id || '';
+                updateStatus(true, 'idle');
+                helloSent = true;
+                return;
+            }
+
+            // 2. 处理 TTS (语音/文字)
+            if (type === 'tts') {
+                // 修改点：只要包里有 text，就立即显示，不管 state 是什么
+                if (msg.text) {
+                    showMessage('AI: ' + msg.text);
+                }
+
+                // 单独处理状态变化（控制LED灯和Live2D嘴型）
+                if (msg.state === 'start') {
+                    updateStatus(true, 'speaking');
+                } else if (msg.state === 'stop') {
+                    updateStatus(true, 'idle');
+                }
+            }
+            // 3. 处理 LLM (大模型文本流) 或 STT (语音识别结果)
+            else if (type === 'llm' || type === 'stt') {
+                if (msg.text) {
+                    // 如果是 LLM，通常是流式输出，这里直接覆盖显示
+                    // 如果希望文字不闪烁，可能需要根据具体后端协议做追加处理
+                    const prefix = type === 'stt' ? 'USER: ' : 'ANDREY: ';
+                    showMessage(prefix + msg.text);
+                }
+            }
+        };
+
+        const connectWs = async () => {
+            if (websocket && websocket.readyState === WebSocket.OPEN) return true;
+            if (wsPromise) return wsPromise;
+
+            await ensureAudioContext();
+            const wsUrl = buildWsUrl();
+            websocket = new WebSocket(wsUrl);
+            websocket.binaryType = 'arraybuffer';
+            helloSent = false;
+
+            wsPromise = new Promise((resolve, reject) => {
+                websocket.onopen = () => {
+                    updateStatus(true, 'connecting');
+                    console.log('[WS] open', wsUrl);
+                    playHead = audioContext ? audioContext.currentTime : 0;
+                    resolve(true);
+                };
+                websocket.onerror = (e) => {
+                    console.error('WS error', e);
+                    updateStatus(false, 'idle');
+                    wsPromise = null;
+                    reject(e);
+                };
+                websocket.onclose = () => {
+                    websocket = null;
+                    sessionId = '';
+                    helloSent = false;
+                    updateStatus(false, 'idle');
+                    wsPromise = null;
+                };
+            });
+
+            websocket.onmessage = (event) => {
+                if (typeof event.data === 'string') {
+                    try {
+                        console.log('[WS] text message', event.data);
+                        handleJsonMessage(JSON.parse(event.data));
+                    } catch (e) {
+                        console.error('JSON parse error', e);
+                    }
+                } else {
+                    console.log('[WS] binary message');
+                    handleBinaryMessage(event.data);
+                }
+            };
+
+            return wsPromise;
+        };
+
+        const sendJson = (payload) => {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) return false;
+            try {
+                websocket.send(JSON.stringify(payload));
+                return true;
+            } catch (e) {
+                console.error('Send JSON failed', e);
+                return false;
+            }
+        };
+
+        const sendHelloIfNeeded = () => {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN || helloSent) {
+                return;
+            }
+            const hello = {
+                type: 'hello',
+                version: 1,
+                features: { mcp: true },
+                transport: 'websocket',
+                audio_params: {
+                    format: 'opus',
+                    sample_rate: 24000,
+                    channels: 1,
+                    frame_duration: 20,
+                },
+            };
+            try {
+                websocket.send(JSON.stringify(hello));
+            } catch (e) {
+                console.error('Send hello failed', e);
+            }
+        };
+
+        const sendListenStart = () => sendJson({
+            session_id: sessionId,
+            type: 'listen',
+            state: 'start',
+            mode: 'manual',
+        });
+
+        const sendListenStop = () => sendJson({
+            session_id: sessionId,
+            type: 'listen',
+            state: 'stop',
+        });
+
+        const sendDetectText = (text) => sendJson({
+            session_id: sessionId,
+            type: 'listen',
+            state: 'detect',
+            text,
+        });
+
+        const startRecorder = async () => {
+            // 已改为浏览器端语音识别，不再直推音频
+            return;
+        };
+
+        const stopRecorder = () => { };
+
+        const callApi = async (path, data = {}) => {
+            try {
+                const res = await fetch(`${serverBase}${path}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) throw new Error(await res.text());
+                return res.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                showMessage("ERROR: " + error.message);
+            }
+        };
+
+        // Send Text
+        const sendText = async () => {
+            const text = ui.textInput.value.trim();
+            if (!text) return;
+
+            await unlockAudioContext();
+            await connectWs();
+            sendHelloIfNeeded();
+            ui.textInput.value = '';
+            showMessage("SENDING: " + text);
+            if (!sendDetectText(text)) {
+                await callApi('/api/text', { text: text });
+            }
+        };
+
+        ui.btnSend.addEventListener('click', sendText);
+        ui.textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendText();
+        });
+
+        // Voice Controls（改为浏览器端语音识别 → 文本，再走文本接口）
+        const sendVoiceText = async (text) => {
+            const msg = (text || '').trim();
+            if (!msg) return;
+            console.log('[STT] final text:', msg);
+            showMessage("VOICE: " + msg);
+            if (!sendDetectText(msg)) {
+                await callApi('/api/text', { text: msg });
+            }
+        };
+
+        // ==========================================
+        //  (新) 语音识别模块：包含多语言切换逻辑
+        // ==========================================
+
+        // 1. 定义支持的语言
+        const languages = [
+            { code: 'zh-CN', label: '普' },
+            { code: 'zh-HK', label: '粤' },
+            { code: 'en-US', label: 'ENG' }
+        ];
+        let currentLangIndex = 0; // 默认索引 0 (普通话)
+
+        // 2. 绑定切换按钮逻辑
+        const langSelectBtn = document.getElementById('langSelectBtn');
+        const currentLangDisplay = document.getElementById('currentLang');
+
+        // 如果在 HTML 里找到了按钮，就添加点击事件
+        if (langSelectBtn && currentLangDisplay) {
+            langSelectBtn.addEventListener('click', () => {
+                // 切换到下一个语言
+                currentLangIndex = (currentLangIndex + 1) % languages.length;
+                const selected = languages[currentLangIndex];
+
+                // 更新界面显示的文字
+                currentLangDisplay.textContent = selected.label;
+
+                // 如果当前有识别器实例，必须销毁它，因为语言不能动态改，只能重建
+                if (recognizer) {
+                    if (recognizing) {
+                        try { recognizer.stop(); } catch (e) { }
+                    }
+                    recognizer = null; // 销毁，强制 ensureRecognizer 下次重新创建
+                }
+
+                showMessage(`LANG SWITCHED: ${selected.label}`);
+            });
+        }
+
+        // 3. 核心：获取/创建识别器函数
+        const ensureRecognizer = () => {
+            // 1. 基础检查：如果不支持或实例已存在，直接返回
+            if (recognizer || !SpeechRecognition) return SpeechRecognition ? recognizer : null;
+
+            // 2. 创建实例
+            recognizer = new SpeechRecognition();
+
+            // 3. 配置参数
+            // 使用当前选中的语言 (需配合之前的 languages 数组)
+            recognizer.lang = languages[currentLangIndex].code;
+            recognizer.interimResults = true; // 允许返回临时结果
+            recognizer.continuous = true;     // 允许连续对话
+
+            // --- 事件监听 ---
+
+            recognizer.onstart = () => {
+                console.log(`[STT] start (${recognizer.lang})`);
+                recognizing = true;
+
+                // 【核心修复：防按钮卡死】
+                // 检查物理状态：如果录音启动时，发现用户手指已经松开了（isPressing 为 false）
+                // 说明这是一次极快的点击（小于启动延迟），应当立即停止录音，不要进入“听”的状态
+                if (!isPressing) {
+                    console.log('[STT] Detected early release, aborting...');
+                    try { recognizer.stop(); } catch (e) { }
+                    return; // 直接退出，不执行下面的状态更新
+                }
+
+                // 只有 truly 在录音且按住时，才触发系统状态变更（红色光环等）
+                // 注意：按钮变亮(active)的样式现在由 handleStartSpeaking 直接控制，这里不需要再加
+                updateStatus(true, 'listening');
+                showMessage('LISTENING...');
+            };
+
+            recognizer.onresult = (e) => {
+                let transcript = '';
+                // 遍历结果，提取最终确定的文本 (isFinal)
+                for (const res of e.results) {
+                    if (res.isFinal) transcript += res[0].transcript;
+                }
+                // 发送文本给后端
+                if (transcript) sendVoiceText(transcript);
+            };
+
+            recognizer.onerror = (e) => {
+                console.warn('STT error', e);
+                // 忽略 'no-speech' (只是没说话) 和 'not-allowed' (通常外面已经处理了权限)
+                if (e.error !== 'no-speech' && e.error !== 'not-allowed') {
+                    showMessage('STT ERROR: ' + (e.error || 'unknown'));
+                }
+            };
+
+            recognizer.onend = () => {
+                console.log('[STT] end');
+                recognizing = false;
+
+                // 【双重保险】确保按钮样式被移除
+                // 无论是因为松手停止，还是超时自动停止，都要确保灯灭掉
+                ui.btnSpeak.classList.remove('active');
+
+                // 恢复系统待机状态（光环消失）
+                updateStatus(true, 'idle');
+                showMessage('STT STANDBY');
+
+                // 清理超时计时器
+                if (sttStopTimer) {
+                    clearTimeout(sttStopTimer);
+                    sttStopTimer = null;
+                }
+            };
+
+            recognizer.onnomatch = () => {
+                console.log('[STT] no match');
+                showMessage('未识别到语音');
+            };
+
+            return recognizer;
+        };
+
+        // ==========================================
+        //  (新) 语音按钮交互逻辑：兼容手机触摸 + 电脑鼠标
+        // ==========================================
+
+        // 1. 定义“开始录音”的通用逻辑
+        // ==========================================
+        //  (优化版) 交互逻辑：视觉无延迟 + 防卡死
+        // ==========================================
+
+        const handleStartSpeaking = async (e) => {
+            if (e.cancelable) e.preventDefault();
+
+            // 1. 【视觉层】立即响应，无延迟
+            isPressing = true;
+            ui.btnSpeak.classList.add('active'); // 只要按住，立马变亮
+
+            console.log('[Interaction] Start:', e.type);
+
+            // 【豆包 ASR 分支】
+            if (useDoubao) {
+                console.log('[豆包ASR] 启动豆包语音识别');
+
+                initDoubaoASR();
+                await unlockAudioContext();
+                await connectWs();
+                sendHelloIfNeeded();
+
+                updateStatus(true, 'listening');
+                const started = await doubaoASR.start();
+                if (!started) {
+                    ui.btnSpeak.classList.remove('active');
+                    isPressing = false;
+                }
+                return;
+            }
+
+            // 如果已经在录音，就不重复启动
+            if (recognizing) return;
+
+            // 权限检查
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (err) {
+                console.warn('Microphone denied', err);
+                showMessage('麦克风权限被拒绝');
+                // 权限失败也要恢复按钮状态
+                ui.btnSpeak.classList.remove('active');
+                isPressing = false;
+                return;
+            }
+
+            // 初始化
+            await fetchServerConfig();
+            loadConfig();
+            await unlockAudioContext();
+            await connectWs();
+            sendHelloIfNeeded();
+
+            const rec = ensureRecognizer();
+            if (rec) {
+                try {
+                    rec.start();
+                    // 8秒超时保护
+                    sttStopTimer = setTimeout(() => {
+                        if (recognizer && recognizing) {
+                            try { recognizer.stop(); } catch (e) { }
+                        }
+                    }, 8000);
+                } catch (err) {
+                    // 如果并不是因为“已经开始”而报错，说明真的出错了
+                    if (err.name !== 'InvalidStateError') {
+                        console.warn('Recognizer start failed', err);
+                        // 出错时恢复按钮状态
+                        ui.btnSpeak.classList.remove('active');
+                        isPressing = false;
+                    }
+                }
+            }
+        };
+
+        const handleStopSpeaking = (e) => {
+            if (e && e.cancelable) e.preventDefault();
+
+            // 1. 【视觉层】立即恢复，无延迟
+            isPressing = false;
+            ui.btnSpeak.classList.remove('active'); // 只要松手，立马变暗
+
+            console.log('[Interaction] Stop:', e ? e.type : 'manual');
+
+            // 【豆包 ASR 分支】
+            if (useDoubao && doubaoASR) {
+                console.log('[豆包ASR] 停止豆包语音识别');
+                doubaoASR.stop();
+                updateStatus(true, 'idle');
+                return;
+            }
+
+            // 逻辑停止
+            if (recognizer && recognizing) {
+                try { recognizer.stop(); } catch (e) { }
+            }
+            if (sttStopTimer) {
+                clearTimeout(sttStopTimer);
+                sttStopTimer = null;
+            }
+        };
+
+
+
+        // 3. 绑定事件监听 (覆盖所有操作方式)
+
+        // --- 手机端触摸事件 ---
+        // passive: false 是为了让 e.preventDefault() 生效，禁止长按菜单
+        ui.btnSpeak.addEventListener('touchstart', handleStartSpeaking, { passive: false });
+        ui.btnSpeak.addEventListener('touchend', handleStopSpeaking);
+        ui.btnSpeak.addEventListener('touchcancel', handleStopSpeaking); // 手指划出屏幕或被系统打断
+
+        // --- 电脑端鼠标事件 ---
+        ui.btnSpeak.addEventListener('mousedown', handleStartSpeaking);
+        ui.btnSpeak.addEventListener('mouseup', handleStopSpeaking);
+        ui.btnSpeak.addEventListener('mouseleave', handleStopSpeaking); // 鼠标移出按钮区域
+
+        // --- 禁用右键菜单 ---
+        ui.btnSpeak.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        });
+        // Abort
+        ui.btnAbort.addEventListener('click', async () => {
+            sendJson({ session_id: sessionId, type: 'abort' }) || await callApi('/api/abort');
+            stopRecorder();
+            updateStatus(null, 'idle');
+        });
+
+        // SSE
+        const connectSSE = () => {
+            const evtSource = new EventSource(`${serverBase}/events`);
+
+            evtSource.onopen = () => {
+                updateStatus(true, 'idle');
+                showMessage("SYSTEM LINK ESTABLISHED");
+            };
+
+            evtSource.onmessage = (event) => {
+                if (!event.data) return;
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.event === 'json') {
+                        const p = data.payload || {};
+                        // Fix: Only show if text exists and is not empty
+                        if (p.text) {
+                            if (p.type === 'stt') showMessage("USER: " + p.text);
+                            else if (p.type === 'tts' || p.type === 'llm') showMessage("ANDREY: " + p.text);
+                        }
+                    } else if (data.event === 'state') {
+                        updateStatus(null, data.payload);
+                    } else if (data.event === 'state_snapshot' && data.payload.device_state) {
+                        updateStatus(null, data.payload.device_state);
+                    }
+                } catch (error) { console.error(error); }
+            };
+
+            evtSource.onerror = () => {
+                updateStatus(false, 'idle');
+                evtSource.close();
+                setTimeout(connectSSE, 3000);
+            };
+        };
+
+        connectSSE();
+        (async () => {
+            loadConfig();
+            await fetchServerConfig();
+            if (config.token) {
+                try {
+                    const ok = await connectWs();
+                    if (ok) sendHelloIfNeeded();
+                } catch (e) {
+                    console.warn('Auto connect WS failed', e);
+                }
+            }
+        })();
+    </script>
+</body>
+
+</html>

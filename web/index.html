@@ -501,58 +501,85 @@
             }
         }
 
-        /* 语言选择器样式 */
-        .lang-selector {
+        /* --- 语言切换器 (New Language Switcher) --- */
+        /* --- 语言切换器样式 (图片版) --- */
+        .lang-switcher {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            /* 手机端适配 */
+            margin-bottom: 5px;
+        }
+
+        .lang-btn {
+            position: relative;
+            width: 50px;
+            /* 稍微加宽一点以容纳图片 */
+            height: 34px;
+            background: rgba(0, 20, 30, 0.6);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-            background: rgba(0, 243, 255, 0.05);
-            border: 1px solid rgba(0, 243, 255, 0.3);
-            color: #00f3ff;
-            height: 30px;
-            padding: 0 10px;
-            font-family: "Consolas", monospace;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-bottom: 5px;
-            /* 手机端布局间隔 */
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            /* 默认状态：半透明 + 纯黑白 */
+            opacity: 0.6;
+            filter: grayscale(100%) contrast(1.2);
         }
 
-        .lang-selector:hover {
+        /* 国旗图片样式 */
+        .lang-flag-img {
+            width: 26px;
+            /* 图片宽度 */
+            height: auto;
+            /* 高度自适应 */
+            display: block;
+            border-radius: 2px;
+            /* 小圆角 */
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 悬停效果 */
+        .lang-btn:hover {
+            opacity: 1;
+            border-color: rgba(0, 243, 255, 0.6);
+            filter: grayscale(0%);
+            /* 悬停时恢复色彩 */
+            transform: translateY(-2px);
+        }
+
+        /* 选中状态：高亮、发光、全彩 */
+        .lang-btn.active {
+            opacity: 1;
+            border-color: #00f3ff;
             background: rgba(0, 243, 255, 0.15);
-            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+            /* 关键：移除灰度，增加亮度 */
+            filter: grayscale(0%) brightness(1.1);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+            transform: scale(1.1);
+            z-index: 2;
         }
 
-        .lang-label {
-            opacity: 0.7;
+        .lang-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: #00f3ff;
+            box-shadow: 0 0 6px #00f3ff;
         }
 
-        .lang-current {
-            font-weight: bold;
-            text-decoration: underline;
-        }
-
-        /* 手机端适配调整 */
+        /* 手机适配 */
         @media (max-width: 768px) {
-            .lang-selector {
+            .lang-switcher {
                 width: 100%;
-                /* 手机上占满一行 */
                 order: 0;
-                /* 放在最顶端 */
-            }
-
-            .input-module {
-                order: 1;
-            }
-
-            #btnSpeak {
-                order: 2;
-            }
-
-            #btnAbort {
-                order: 3;
+                margin-bottom: 10px;
             }
         }
     </style>
@@ -596,9 +623,18 @@
 
         <!-- Bottom Control Deck -->
         <div class="control-deck">
-            <div class="lang-selector" id="langSelectBtn">
-                <span class="lang-label">LANG:</span>
-                <span class="lang-current" id="currentLang">普</span>
+            <div class="lang-switcher">
+                <div class="lang-btn" data-lang="zh-CN" title="普通话">
+                    <img src="https://flagcdn.com/w80/cn.png" class="lang-flag-img" alt="CN">
+                </div>
+
+                <div class="lang-btn" data-lang="zh-HK" title="粤语">
+                    <img src="https://flagcdn.com/w80/hk.png" class="lang-flag-img" alt="HK">
+                </div>
+
+                <div class="lang-btn" data-lang="en-US" title="English">
+                    <img src="https://flagcdn.com/w80/gb.png" class="lang-flag-img" alt="GB">
+                </div>
             </div>
 
             <button class="btn" id="btnSpeak">HOLD TO SPEAK</button>
@@ -642,6 +678,7 @@
         let isRecording = false;
         let isSpeaking = false;
         let lipSyncInterval = null;
+        let isPressing = false; // 记录物理按压状态
 
         // Init PixiJS
         app = new PIXI.Application({
@@ -1204,64 +1241,86 @@
 
         // 1. 定义支持的语言
         const languages = [
-            { code: 'zh-CN', label: '普' },
-            { code: 'zh-HK', label: '粤' },
-            { code: 'en-US', label: 'ENG' }
+            { code: 'zh-CN', label: '普通话' }, // Index 0
+            { code: 'zh-HK', label: '粤语' },   // Index 1 (默认)
+            { code: 'en-US', label: 'English' } // Index 2
         ];
-        let currentLangIndex = 0; // 默认索引 0 (普通话)
+
+        // 默认设置为 1 (粤语 - zh-HK)
+        let currentLangIndex = 1;
 
         // 2. 绑定切换按钮逻辑
-        const langSelectBtn = document.getElementById('langSelectBtn');
-        const currentLangDisplay = document.getElementById('currentLang');
+        const langBtns = document.querySelectorAll('.lang-btn');
 
-        // 如果在 HTML 里找到了按钮，就添加点击事件
-        if (langSelectBtn && currentLangDisplay) {
-            langSelectBtn.addEventListener('click', () => {
-                // 切换到下一个语言
-                currentLangIndex = (currentLangIndex + 1) % languages.length;
-                const selected = languages[currentLangIndex];
+        // UI 渲染函数：更新按钮的选中状态
+        function renderLangState() {
+            langBtns.forEach((btn, index) => {
+                if (index === currentLangIndex) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
 
-                // 更新界面显示的文字
-                currentLangDisplay.textContent = selected.label;
+            const cur = languages[currentLangIndex];
+            console.log(`[System] Language set to: ${cur.label} (${cur.code})`);
+            // 可选：切换语言时给个提示
+            // showMessage(`SWITCHED: ${cur.label}`);
+        }
 
-                // 如果当前有识别器实例，必须销毁它，因为语言不能动态改，只能重建
+        // 初始化 UI 状态
+        renderLangState();
+
+        // 为每个按钮添加点击事件
+        langBtns.forEach((btn, index) => {
+            btn.addEventListener('click', () => {
+                // 如果点击的是当前已选中的，则不做任何事
+                if (currentLangIndex === index) return;
+
+                // 更新索引
+                currentLangIndex = index;
+
+                // 更新 UI
+                renderLangState();
+
+                // 核心逻辑：销毁旧的识别器，以便下次按住说话时使用新语言
                 if (recognizer) {
                     if (recognizing) {
                         try { recognizer.stop(); } catch (e) { }
                     }
-                    recognizer = null; // 销毁，强制 ensureRecognizer 下次重新创建
+                    recognizer = null; // 强制置空，ensureRecognizer 会基于新语言重建
+                    showMessage(`LANG: ${languages[currentLangIndex].label}`);
                 }
-
-                showMessage(`LANG SWITCHED: ${selected.label}`);
             });
-        }
+        });
 
         // 3. 核心：获取/创建识别器函数
         const ensureRecognizer = () => {
-            // 如果浏览器不支持，或者是旧的没被销毁的实例，直接返回
+            // 1. 基础检查
             if (recognizer || !SpeechRecognition) return SpeechRecognition ? recognizer : null;
 
-            // 创建新实例
+            // 2. 创建实例
             recognizer = new SpeechRecognition();
 
-            // 【关键修改】使用当前选中的语言
+            // 3. 配置参数 - 使用当前选中的语言
             recognizer.lang = languages[currentLangIndex].code;
-
             recognizer.interimResults = true;
             recognizer.continuous = true;
 
-            // --- 事件绑定 ---
+            // --- 事件监听 (保持不变) ---
             recognizer.onstart = () => {
                 console.log(`[STT] start (${recognizer.lang})`);
                 recognizing = true;
-                ui.btnSpeak.classList.add('active');
-                updateStatus(true, 'listening'); // 触发红色波动背景
-                showMessage('LISTENING...');
+                if (!isPressing) {
+                    try { recognizer.stop(); } catch (e) { }
+                    return;
+                }
+                updateStatus(true, 'listening');
+                showMessage(`LISTENING (${languages[currentLangIndex].label})...`);
             };
 
             recognizer.onresult = (e) => {
                 let transcript = '';
-                // 遍历结果，只取 final (确定的) 部分发送给后端
                 for (const res of e.results) {
                     if (res.isFinal) transcript += res[0].transcript;
                 }
@@ -1270,8 +1329,7 @@
 
             recognizer.onerror = (e) => {
                 console.warn('STT error', e);
-                // 忽略 'no-speech' 这种非致命错误
-                if (e.error !== 'no-speech') {
+                if (e.error !== 'no-speech' && e.error !== 'not-allowed') {
                     showMessage('STT ERROR: ' + (e.error || 'unknown'));
                 }
             };
@@ -1280,9 +1338,8 @@
                 console.log('[STT] end');
                 recognizing = false;
                 ui.btnSpeak.classList.remove('active');
-                updateStatus(true, 'idle'); // 恢复待机背景
-                showMessage('STT STOP');
-
+                updateStatus(true, 'idle');
+                showMessage('STT STANDBY');
                 if (sttStopTimer) {
                     clearTimeout(sttStopTimer);
                     sttStopTimer = null;
@@ -1290,7 +1347,6 @@
             };
 
             recognizer.onnomatch = () => {
-                console.log('[STT] no match');
                 showMessage('未识别到语音');
             };
 
@@ -1302,61 +1358,79 @@
         // ==========================================
 
         // 1. 定义“开始录音”的通用逻辑
+        // ==========================================
+        //  (优化版) 交互逻辑：视觉无延迟 + 防卡死
+        // ==========================================
+
         const handleStartSpeaking = async (e) => {
-            // 【关键】阻止浏览器默认行为（防止长按弹出菜单、页面滚动等）
             if (e.cancelable) e.preventDefault();
+
+            // 1. 【视觉层】立即响应，无延迟
+            isPressing = true;
+            ui.btnSpeak.classList.add('active'); // 只要按住，立马变亮
 
             console.log('[Interaction] Start:', e.type);
 
-            // 如果已经在录音，忽略重复触发
+            // 如果已经在录音，就不重复启动
             if (recognizing) return;
 
-            // 尝试获取麦克风权限（手机浏览器通常需要这一步来激活音频环境）
+            // 权限检查
             try {
                 await navigator.mediaDevices.getUserMedia({ audio: true });
             } catch (err) {
                 console.warn('Microphone denied', err);
                 showMessage('麦克风权限被拒绝');
+                // 权限失败也要恢复按钮状态
+                ui.btnSpeak.classList.remove('active');
+                isPressing = false;
                 return;
             }
 
-            // 初始化连接和音频环境
+            // 如果 await 结束后，发现用户已经松手了，就不要启动识别了！
+            if (!isPressing) {
+                console.log('User released early, aborting recognition');
+                return;
+            }
+
+            // 初始化
             await fetchServerConfig();
             loadConfig();
             await unlockAudioContext();
             await connectWs();
             sendHelloIfNeeded();
 
-            // 启动识别器
             const rec = ensureRecognizer();
             if (rec) {
                 try {
                     rec.start();
-
-                    // 设置8秒超时自动停止，防止一直占用麦克风
+                    // 8秒超时保护
                     sttStopTimer = setTimeout(() => {
                         if (recognizer && recognizing) {
                             try { recognizer.stop(); } catch (e) { }
                         }
                     }, 8000);
                 } catch (err) {
-                    console.warn('Recognizer start failed', err);
-                    // 忽略状态错误的报错
+                    // 如果并不是因为“已经开始”而报错，说明真的出错了
                     if (err.name !== 'InvalidStateError') {
-                        showMessage('STT START FAILED');
+                        console.warn('Recognizer start failed', err);
+                        // 出错时恢复按钮状态
+                        ui.btnSpeak.classList.remove('active');
+                        isPressing = false;
                     }
                 }
-            } else {
-                showMessage('浏览器不支持语音识别');
             }
         };
 
-        // 2. 定义“停止录音”的通用逻辑
         const handleStopSpeaking = (e) => {
-            // 同样阻止默认行为
             if (e && e.cancelable) e.preventDefault();
+
+            // 1. 【视觉层】立即恢复，无延迟
+            isPressing = false;
+            ui.btnSpeak.classList.remove('active'); // 只要松手，立马变暗
+
             console.log('[Interaction] Stop:', e ? e.type : 'manual');
 
+            // 逻辑停止
             if (recognizer && recognizing) {
                 try { recognizer.stop(); } catch (e) { }
             }
@@ -1365,6 +1439,8 @@
                 sttStopTimer = null;
             }
         };
+
+
 
         // 3. 绑定事件监听 (覆盖所有操作方式)
 
