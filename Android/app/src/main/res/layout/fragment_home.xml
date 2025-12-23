@@ -7,11 +7,11 @@
     android:padding="24dp">
 
     <!-- 背景装饰 -->
-    <View
+    <!-- 背景装饰 -->
+    <com.xiaozhi.app.ui.widget.GridBackgroundView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:alpha="0.05"
-        android:background="@android:drawable/screen_background_dark_transparent" />
+        android:alpha="0.3" />
 
     <LinearLayout
         android:layout_width="match_parent"

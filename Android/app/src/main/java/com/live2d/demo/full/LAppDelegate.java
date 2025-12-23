@@ -49,7 +49,10 @@ public class LAppDelegate {
     }
 
     public void onPause() {
-        currentModel = LAppLive2DManager.getInstance().getCurrentModel();
+        LAppLive2DManager manager = LAppLive2DManager.getInstanceOrNull();
+        if (manager != null) {
+            currentModel = manager.getCurrentModel();
+        }
     }
 
     public void onStop() {

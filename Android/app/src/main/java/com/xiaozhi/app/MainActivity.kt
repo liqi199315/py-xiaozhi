@@ -7,6 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.xiaozhi.app.databinding.ActivityMainBinding
 import com.xiaozhi.app.ui.HomeFragment
+import com.xiaozhi.app.ui.ConversationFragment
 import com.xiaozhi.app.ui.NavigationHost
 import com.xiaozhi.app.viewmodel.BootstrapViewModel
 
@@ -39,7 +40,7 @@ class MainActivity : AppCompatActivity(), NavigationHost {
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
-                .replace(R.id.fragmentContainer, HomeFragment())
+                .replace(R.id.fragmentContainer, ConversationFragment())
                 .commit()
         }
 

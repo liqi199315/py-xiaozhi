@@ -74,23 +74,28 @@ class Activator(
                 .post(body)
             headers.forEach { (k, v) -> reqBuilder.addHeader(k, v) }
 
-            val resp = client.newCall(reqBuilder.build()).execute()
-            resp.use { r ->
-                val codeResp = r.code
-                val text = r.body?.string().orEmpty()
-                Log.i(AppConfig.LOG_TAG, "[激活] HTTP $codeResp: $text")
-                when (codeResp) {
-                    200 -> {
-                        identity.setActivated(true)
-                        return true
-                    }
-                    202 -> {
-                        delay(5000)
-                    }
-                    else -> {
-                        delay(5000)
+            try {
+                val resp = client.newCall(reqBuilder.build()).execute()
+                resp.use { r ->
+                    val codeResp = r.code
+                    val text = r.body?.string().orEmpty()
+                    Log.i(AppConfig.LOG_TAG, "[激活] HTTP $codeResp: $text")
+                    when (codeResp) {
+                        200 -> {
+                            identity.setActivated(true)
+                            return true
+                        }
+                        202 -> {
+                            delay(5000)
+                        }
+                        else -> {
+                            delay(5000)
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                Log.w(AppConfig.LOG_TAG, "[激活] 网络请求异常: ${e.message}，5秒后重试")
+                delay(5000)
             }
         }
         return false

@@ -33,6 +33,10 @@ public class LAppLive2DManager {
         return s_instance;
     }
 
+    public static LAppLive2DManager getInstanceOrNull() {
+        return s_instance;
+    }
+
     public static void releaseInstance() {
         if (s_instance != null) {
             s_instance.releaseAllModel();

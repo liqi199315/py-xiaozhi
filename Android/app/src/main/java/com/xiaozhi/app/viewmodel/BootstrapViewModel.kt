@@ -73,8 +73,27 @@ class BootstrapViewModel(app: Application) : AndroidViewModel(app) {
         appendLog("發送文字: $text")
     }
 
+    fun startListening() {
+        val sid = sessionId ?: return
+        if (_isListening.value == true) return
+        
+        ws.sendListenStart(sid)
+        audioPipeline.startCapture()
+        appendLog("開始對話")
+        _isListening.postValue(true)
+    }
+
+    fun stopListening() {
+        val sid = sessionId ?: return
+        if (_isListening.value != true) return
+
+        ws.sendListenStop(sid)
+        audioPipeline.stopCapture()
+        appendLog("停止對話")
+        _isListening.postValue(false)
+    }
+
     fun toggleListen() {
-        val current = _isListening.value ?: false
         val sid = sessionId
         if (sid == null) {
             appendLog("尚未连接，正在尝试连接...")
@@ -82,16 +101,11 @@ class BootstrapViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
 
-        if (current) {
-            ws.sendListenStop(sid)
-            audioPipeline.stopCapture()
-            appendLog("停止對話")
+        if (_isListening.value == true) {
+            stopListening()
         } else {
-            ws.sendListenStart(sid)
-            audioPipeline.startCapture()
-            appendLog("開始對話")
+            startListening()
         }
-        _isListening.postValue(!current)
     }
 
     fun bootstrap() {
@@ -115,15 +129,24 @@ class BootstrapViewModel(app: Application) : AndroidViewModel(app) {
                 appendLog("需要激活: code=${act.code} message=${act.message ?: ""}")
                 _activationCode.postValue(act.code)
                 
-                val ok = withContext(Dispatchers.IO) {
-                    activator.activate(act.challenge, act.code)
-                }
-                if (!ok) {
-                    _uiState.postValue("激活失敗")
+                try {
+                    val ok = withContext(Dispatchers.IO) {
+                        activator.activate(act.challenge, act.code)
+                    }
+                    if (!ok) {
+                        _uiState.postValue("激活失敗")
+                        _isBootstrapping.postValue(false)
+                        return@launch
+                    }
+                    appendLog("激活成功")
+                    _activationCode.postValue(null)
+                } catch (e: Exception) {
+                    android.util.Log.e("Xiaozhi", "激活异常", e)
+                    appendLog("激活异常: ${e.message}")
+                    _uiState.postValue("激活出错")
+                    _isBootstrapping.postValue(false)
                     return@launch
                 }
-                appendLog("激活成功")
-                _activationCode.postValue(null)
             }
 
             // 激活后或已激活，再次获取配置以确保拿到最新的 token
