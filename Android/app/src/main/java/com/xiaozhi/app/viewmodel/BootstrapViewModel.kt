@@ -165,6 +165,8 @@ class BootstrapViewModel(app: Application) : AndroidViewModel(app) {
             )
 
             ws.connect(params, object : WebSocketListener() {
+                private var heartbeatJob: kotlinx.coroutines.Job? = null
+
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     appendLog("WS 已連接")
                     _uiState.postValue("WS 已連接")
@@ -172,6 +174,19 @@ class BootstrapViewModel(app: Application) : AndroidViewModel(app) {
                     val jsonStr = Json { encodeDefaults = true }.encodeToString(XiaozhiWebSocket.Hello.serializer(), helloMsg)
                     appendLog("WS -> $jsonStr")
                     ws.sendHello()
+
+                    // Start heartbeat loop
+                    heartbeatJob?.cancel()
+                    heartbeatJob = viewModelScope.launch {
+                        while (true) {
+                            kotlinx.coroutines.delay(25000) // 25 seconds
+                            val sid = sessionId
+                            if (sid != null) {
+                                // android.util.Log.d("Xiaozhi", "Sending heartbeat...")
+                                ws.sendHeartbeat(sid)
+                            }
+                        }
+                    }
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
@@ -205,6 +220,16 @@ class BootstrapViewModel(app: Application) : AndroidViewModel(app) {
                                 _aiResponse.postValue("$currentHistory\n$newMsg".trim())
                                 _currentSentence.postValue(textMsg)
                             }
+                        } else if (type == "error") {
+                            val code = jsonObject["code"]?.jsonPrimitive?.content
+                            val msg = jsonObject["message"]?.jsonPrimitive?.content
+                            appendLog("Server Error: $code $msg")
+                            if (code == "invalid_session" || code == "session_timeout") {
+                                // Reconnect
+                                webSocket.close(1000, "Session Invalid")
+                                _isReady.postValue(false)
+                                // Bootstrap will be triggered by UI or manual retry
+                            }
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("Xiaozhi", "解析失敗: ${e.message}")
@@ -218,16 +243,34 @@ class BootstrapViewModel(app: Application) : AndroidViewModel(app) {
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     appendLog("WS 失敗: ${t.message}")
+                    heartbeatJob?.cancel()
                     _isListening.postValue(false)
                     _isReady.postValue(false)
                     audioPipeline.stopCapture()
+                    
+                    // Auto reconnect
+                    viewModelScope.launch {
+                        kotlinx.coroutines.delay(3000)
+                        appendLog("正在嘗試重新連接...")
+                        bootstrap()
+                    }
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     appendLog("WS 已關閉: $code $reason")
+                    heartbeatJob?.cancel()
                     _isListening.postValue(false)
                     _isReady.postValue(false)
                     audioPipeline.stopCapture()
+
+                    if (code != 1000) {
+                         // Auto reconnect if not normal closure
+                        viewModelScope.launch {
+                            kotlinx.coroutines.delay(3000)
+                            appendLog("正在嘗試重新連接...")
+                            bootstrap()
+                        }
+                    }
                 }
             })
 

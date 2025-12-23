@@ -97,6 +97,11 @@ class XiaozhiWebSocket {
         }
     }
 
+    fun sendHeartbeat(sessionId: String) {
+        val payload = """{"session_id":"$sessionId","type":"status","state":"idle"}"""
+        socket?.send(payload)
+    }
+
     private var binaryCount = 0
     fun sendBinaryAudio(data: ByteArray) {
         socket?.send(data.toByteString(0, data.size))
