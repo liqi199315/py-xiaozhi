@@ -8,7 +8,7 @@
 
     <!-- 背景装饰 -->
     <!-- 背景装饰 -->
-    <com.xiaozhi.app.ui.widget.GridBackgroundView
+    <com.eshowcaseai.app.ui.widget.GridBackgroundView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:alpha="0.3" />

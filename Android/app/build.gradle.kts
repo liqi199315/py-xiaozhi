@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.xiaozhi.app"
+    namespace = "com.eshowcaseai.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.xiaozhi.app"
+        applicationId = "com.eshowcaseai.app"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

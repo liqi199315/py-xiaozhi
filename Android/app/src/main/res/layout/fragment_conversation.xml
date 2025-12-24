@@ -7,7 +7,7 @@
 
     <!-- 背景装饰：网格或渐变 (模拟高科技背景) -->
     <!-- 背景装饰：网格 -->
-    <com.xiaozhi.app.ui.widget.GridBackgroundView
+    <com.eshowcaseai.app.ui.widget.GridBackgroundView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:alpha="0.3" />
@@ -31,7 +31,7 @@
         android:alpha="0.8" />
 
     <!-- Live2D 角色展示 -->
-    <com.xiaozhi.app.core.live2d.Live2DView
+    <com.eshowcaseai.app.core.live2d.Live2DView
         android:id="@+id/live2dView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
