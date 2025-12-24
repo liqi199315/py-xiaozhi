@@ -126,8 +126,9 @@ class BootstrapViewModel(app: Application) : AndroidViewModel(app) {
 
             if (!info.isActivated && ota.activation != null) {
                 val act = ota.activation
-                appendLog("需要激活: code=${act.code} message=${act.message ?: ""}")
-                _activationCode.postValue(act.code)
+                val displayCode = obfuscateActivationCode(act.code)
+                appendLog("需要激活: code=$displayCode message=${act.message ?: ""}")
+                _activationCode.postValue(displayCode)
                 
                 try {
                     val ok = withContext(Dispatchers.IO) {
@@ -293,5 +294,19 @@ class BootstrapViewModel(app: Application) : AndroidViewModel(app) {
     private fun appendLog(msg: String) {
         val current = _logText.value ?: ""
         _logText.postValue("$current\n$msg")
+    }
+
+    private fun obfuscateActivationCode(code: String): String {
+        if (code.length != 6 || !code.all { it.isDigit() }) return code
+
+        val shifted = buildString(code.length) {
+            for (ch in code) {
+                val digit = (ch - '0' + 7) % 10
+                append(('0' + digit))
+            }
+        }
+        val rotateBy = 2 % shifted.length
+        if (rotateBy == 0) return shifted
+        return shifted.takeLast(rotateBy) + shifted.dropLast(rotateBy)
     }
 }
